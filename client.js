@@ -5,7 +5,7 @@
 //   1. 挂载 opencodeUsage Typert Remote（拿到调用 Host 的通道）
 //   2. 注册 settings.section 侧边栏分区「OpenCode Go」（常驻入口）
 //   3. 注册 conversation.input.right 工具行控件：当会话当前模型是
-//      opencode-go 时，在模型选择器旁边显示一个仪表盘图标按钮；
+//      opencode-go 时，在模型选择器旁边显示一个闪电图标按钮；
 //      悬停显示用量百分比，点击弹出独立 Modal 看三个窗口明细
 //   4. 渲染用量页面：三个窗口的进度条 / 百分比 / 限额 / 重置时间
 //
@@ -158,21 +158,14 @@ window.__ModuleLoader__.load({
       );
     }
 
-    // ---------- 仪表盘图标 ----------
-    // 表盘弧 + 指针：指针角度 = 用量百分比（0% 在左下，100% 在右下），
-    // 用量越高指针越偏右，一眼看到余量。
-    function GaugeIcon(props) {
-      const { percent, size = 16 } = props;
-      const p = Number.isFinite(percent) ? Math.max(0, Math.min(100, percent)) : 0;
-      // 屏幕坐标（y 向下）：弧从 210° 经正上方到 330°，表盘开口朝下。
-      const angle = 210 + 1.2 * p;
-      const rad = (angle * Math.PI) / 180;
-      const tipX = 8 + 5 * Math.cos(rad);
-      const tipY = 8 + 5 * Math.sin(rad);
+    // ---------- 闪电图标 ----------
+    // 简洁的闪电（bolt）图形，语义 = 消耗/配额。图标集里没有现成的
+    // bolt，这里手绘一个标准的闪电多边形，跟随 currentColor。
+    function BoltIcon(props) {
+      const { size = 16 } = props;
       return React.createElement("svg",
-        { width: size, height: size, viewBox: "0 0 16 16", fill: "none", xmlns: "http://www.w3.org/2000/svg" },
-        React.createElement("path", { d: "M2.804 5 A 6 6 0 0 1 13.196 5", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round", opacity: 0.4 }),
-        React.createElement("line", { x1: 8, y1: 8, x2: tipX.toFixed(3), y2: tipY.toFixed(3), stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round" })
+        { width: size, height: size, viewBox: "0 0 16 16", fill: "currentColor", xmlns: "http://www.w3.org/2000/svg" },
+        React.createElement("path", { d: "M9.75 1 L3.25 9.5 H7 L6 15 L12.75 6.5 H8.9 Z" })
       );
     }
 
@@ -241,12 +234,6 @@ window.__ModuleLoader__.load({
       );
     }
 
-    // 从用量结果里取滚动窗口百分比（工具行按钮/悬停提示用）。
-    function rollingPercent(usage) {
-      const w = usage && usage.rolling;
-      return w && typeof w.percent === "number" ? w.percent : null;
-    }
-
     // 悬停提示文案：三个窗口的紧凑百分比。
     function tooltipText(usage, t) {
       if (!usage) return t("noData");
@@ -297,7 +284,7 @@ window.__ModuleLoader__.load({
               onClick: () => setOpen(true),
               "aria-label": t("openUsage"),
             },
-            React.createElement(GaugeIcon, { percent: rollingPercent(usage) })
+            React.createElement(BoltIcon, null)
           )
         ),
         React.createElement(Modal,
@@ -343,7 +330,7 @@ window.__ModuleLoader__.load({
         inject: () => ({ query, t }),
       }, (props) => React.createElement(UsageBody, { query, t: props.t, title: t("title") })));
 
-      // 入口 2：会话工具行的仪表盘按钮（仅 opencode-go 模型时出现）。
+      // 入口 2：会话工具行的闪电按钮（仅 opencode-go 模型时出现）。
       ctx.inject(["slots", "modelDirectories"], (scope) => {
         const models = scope.modelDirectories;
         scope.slots.inject("conversation.input.right", () => scope.slots.register({
