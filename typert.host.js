@@ -2,7 +2,8 @@
 //
 // typert-loader 通过 package.json 的 exports["./typert"] 引入本文件，
 // 注册到 ctx.typert.local；Host 网关据此在严格模式下认领并分发
-// "opencodeUsage/usage" 端点：入参为空，出参用 zod schema 校验，
+// "opencodeUsage/usage" 端点：入参为一个可选的 force 布尔
+// （true = 绕过缓存强制刷新），出参用 zod schema 校验，
 // 校验通过的结果才会跨 RPC 传给浏览器端。
 
 import { z } from "zod";
@@ -37,7 +38,18 @@ export const TYPERT = {
       namespace: "opencodeUsage",
       method: "usage",
       invocation: { kind: "direct" },
-      parameters: [],
+      parameters: [
+        {
+          name: "force",
+          wire: "force",
+          source: "json",
+          codec: {
+            mode: "strict",
+            typeSymbol: "dsh-opencode-go-usage#usage:force",
+            schema: z.boolean(),
+          },
+        },
+      ],
       result: {
         mode: "strict",
         typeSymbol: "dsh-opencode-go-usage#OpencodeGoUsageResult",

@@ -8,6 +8,14 @@ A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web GUI pl
 
 ## Features
 
+- Adds an **OpenCode Go** section to the Settings sidebar (`settings.section` contribution), always available
+- Adds a **usage gauge button** to the composer tool row (`conversation.input.right`): when the active model is `opencode-go`, a gauge icon whose needle tracks the used percentage appears next to the model selector; hovering shows the three windows' percentages, clicking opens a standalone modal (fresh data on open, bypassing the cache)
+- Host-side Typert Remote `opencodeUsage/usage`: resolves the API key and calls the official usage endpoint; supports a `force` parameter to bypass the cache
+- Client usage page: percentage, progress bar, reference limit and reset time per window
+- Result caching: reopening the page within 60s does not hit the endpoint again
+- Precondition checks: friendly guidance (not errors) when `opencode-go` is missing from Settings → Models, or no API key is found
+- API key resolution: DSH credentials seam (`OPENCODE_GO_API_KEY`) first, falling back to OpenCode's `auth.json`
+
 - Adds an **OpenCode Go** section to the Settings sidebar (`settings.section` contribution)
 - Host-side Typert Remote `opencodeUsage/usage`: resolves the API key and calls the official usage endpoint
 - Client usage page: percentage, progress bar, reference limit and reset time per window

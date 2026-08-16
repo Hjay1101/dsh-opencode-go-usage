@@ -8,6 +8,14 @@
 
 ## 功能
 
+- 设置侧边栏新增 **「OpenCode Go」** 分区（`settings.section` 贡献），常驻可查
+- 会话工具行新增 **用量仪表盘按钮**（`conversation.input.right`）：当当前模型是 `opencode-go` 时，模型选择器旁出现一个指针随用量转动的仪表盘图标；悬停显示三个窗口的百分比，点击弹出独立弹窗（打开即强制刷新，不受缓存影响）
+- Host 端 Typert Remote `opencodeUsage/usage`：读取 API Key 并调用官方用量接口，支持 `force` 参数绕过缓存
+- 客户端用量页：每个窗口的百分比、进度条、限额参考值与重置时间
+- 结果缓存：同一配置下 60 秒内重复打开页面不重复请求接口
+- 前置检查：若「设置 → 模型」未添加 opencode-go、或找不到 API Key，显示引导而非报错
+- API Key 优先从 DSH 凭据 seam（`OPENCODE_GO_API_KEY`）解析，回退 OpenCode 的 `auth.json`
+
 - 设置侧边栏新增 **「OpenCode Go」** 分区（`settings.section` 贡献）
 - Host 端 Typert Remote `opencodeUsage/usage`：读取 API Key 并调用官方用量接口
 - 客户端用量页：每个窗口的百分比、进度条、限额参考值与重置时间

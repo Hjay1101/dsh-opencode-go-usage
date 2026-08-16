@@ -92,7 +92,12 @@ export class OpencodeGoUsageGateway extends TypertRemoteService {
     this._cache = { key: null, at: 0, value: null };
   }
 
-  async usage() {
+  /**
+   * 查询用量。默认命中 60s 缓存；force=true 时绕过缓存直连接口
+   * （弹窗"打开即刷新"用），拿到的最新结果仍会写回缓存。
+   * @param {boolean} [force] 是否强制刷新（跳过缓存）。
+   */
+  async usage(force = false) {
     const baseUrl = this.config.baseUrl || DEFAULT_BASE_URL;
     const timeoutMs = this.config.timeoutMs || DEFAULT_TIMEOUT_MS;
     const cacheTtlMs = this.config.cacheTtlMs || DEFAULT_CACHE_TTL_MS;
@@ -108,9 +113,9 @@ export class OpencodeGoUsageGateway extends TypertRemoteService {
       return { configured: false, reason: "no-api-key", error: null, usage: null };
     }
 
-    // 命中缓存则直接返回。
+    // 命中缓存则直接返回（force 时跳过缓存，直接打接口）。
     const now = Date.now();
-    if (this._cache.key === baseUrl && now - this._cache.at < cacheTtlMs) {
+    if (!force && this._cache.key === baseUrl && now - this._cache.at < cacheTtlMs) {
       return this._cache.value;
     }
 
