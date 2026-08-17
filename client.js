@@ -171,8 +171,10 @@ window.__ModuleLoader__.load({
 
     // ---------- 用量主体（设置页与弹窗共用） ----------
     // query: () => Promise<result.value>；组件内部管理 loading / 错误 / 数据态。
+    // showFootnote: 是否显示"限额为展示参考"脚注（设置页显示，弹窗不显示）。
+    // showRefresh: 是否显示"刷新"按钮（设置页显示；弹窗打开即强刷，关掉重开即可重试）。
     function UsageBody(props) {
-      const { query, t, title } = props;
+      const { query, t, title, showFootnote = false, showRefresh = true } = props;
       const [state, setState] = React.useState({ kind: "loading" });
 
       const load = React.useCallback(() => {
@@ -199,7 +201,7 @@ window.__ModuleLoader__.load({
       if (state.kind === "failure") {
         return React.createElement("div", { style: styles.wrap },
           React.createElement("p", { style: styles.error }, state.message),
-          React.createElement("button", { style: styles.button, onClick: load }, t("refresh"))
+          showRefresh ? React.createElement("button", { style: styles.button, onClick: load }, t("refresh")) : null
         );
       }
 
@@ -208,7 +210,7 @@ window.__ModuleLoader__.load({
         const msg = value.reason === "no-api-key" ? t("noApiKey") : t("notInModels");
         return React.createElement("div", { style: styles.wrap },
           React.createElement("p", { style: styles.error }, msg),
-          React.createElement("button", { style: styles.button, onClick: load }, t("refresh"))
+          showRefresh ? React.createElement("button", { style: styles.button, onClick: load }, t("refresh")) : null
         );
       }
       if (value.error) {
@@ -219,7 +221,7 @@ window.__ModuleLoader__.load({
         else if (value.error.startsWith("http-")) msg = t("httpError").replace("{status}", value.error.slice(5));
         return React.createElement("div", { style: styles.wrap },
           React.createElement("p", { style: styles.error }, msg),
-          React.createElement("button", { style: styles.button, onClick: load }, t("refresh"))
+          showRefresh ? React.createElement("button", { style: styles.button, onClick: load }, t("refresh")) : null
         );
       }
 
@@ -229,8 +231,8 @@ window.__ModuleLoader__.load({
         React.createElement(WindowCard, { name: t("rolling"), limit: LIMITS.rolling, windowData: usage.rolling, t }),
         React.createElement(WindowCard, { name: t("weekly"), limit: LIMITS.weekly, windowData: usage.weekly, t }),
         React.createElement(WindowCard, { name: t("monthly"), limit: LIMITS.monthly, windowData: usage.monthly, t }),
-        React.createElement("p", { style: styles.hint }, t("footnote")),
-        React.createElement("button", { style: styles.button, onClick: load }, t("refresh"))
+        showFootnote ? React.createElement("p", { style: styles.hint }, t("footnote")) : null,
+        showRefresh ? React.createElement("button", { style: styles.button, onClick: load }, t("refresh")) : null
       );
     }
 
@@ -295,7 +297,7 @@ window.__ModuleLoader__.load({
             closeLabel: t("close"),
             contentClassName: "opencode-go-usage-modal-body",
           },
-          React.createElement(UsageBody, { query: forceQuery, t })
+          React.createElement(UsageBody, { query: forceQuery, t, showRefresh: false })
         )
       );
     }
@@ -328,7 +330,7 @@ window.__ModuleLoader__.load({
         label: () => t("nav"),
         locale: NS,
         inject: () => ({ query, t }),
-      }, (props) => React.createElement(UsageBody, { query, t: props.t, title: t("title") })));
+      }, (props) => React.createElement(UsageBody, { query, t: props.t, title: t("title"), showFootnote: true })));
 
       // 入口 2：会话工具行的闪电按钮（仅 opencode-go 模型时出现）。
       ctx.inject(["slots", "modelDirectories"], (scope) => {
