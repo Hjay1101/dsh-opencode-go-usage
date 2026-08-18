@@ -178,7 +178,7 @@ window.__ModuleLoader__.load({
       // 模型限额表
       tableHead: { display: "flex", gap: 10, padding: "4px 12px", fontSize: 12, color: "var(--dsw-alias-label-tertiary)", borderBottom: "1px solid var(--dsw-alias-border-l1)" },
       tableRow: { display: "flex", gap: 10, padding: "7px 12px", fontSize: 12, color: "var(--dsw-alias-label-secondary)", borderBottom: "1px solid var(--dsw-alias-border-l1)", alignItems: "center" },
-      tableBody: { overflowY: "auto", maxHeight: 360 },
+      tableBody: { overflowY: "auto" },
       colModel: { flex: 1.6, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "left" },
       colCap: { flex: 0.7, textAlign: "right" },
       colReq: { flex: 1, textAlign: "right" },
@@ -201,7 +201,10 @@ window.__ModuleLoader__.load({
       const percent = windowData && typeof windowData.percent === "number" ? windowData.percent : null;
       const pct = percent === null ? 0 : Math.max(0, Math.min(100, percent));
       const used = percent === null ? null : (pct / 100) * quotaUsd;
-      return React.createElement("div", { style: styles.card },
+      const cardStyle = props.grow
+        ? { ...styles.card, flex: "1 1 0", minHeight: 0 }
+        : styles.card;
+      return React.createElement("div", { style: cardStyle },
         React.createElement("div", { style: styles.cardHead },
           React.createElement("h3", { style: styles.cardName }, name),
           React.createElement("p", { style: styles.cardMeta }, t("limit") + ": " + usd(quotaUsd))
@@ -306,10 +309,11 @@ window.__ModuleLoader__.load({
           React.createElement("span", { style: styles.colCap }, usd(m.monthlyUsd)),
         )
       );
-      return React.createElement("div", { style: styles.card },
+      const cardStyle = { ...styles.card, flex: "1 1 0", minHeight: 0, maxHeight: 480 };
+      return React.createElement("div", { style: cardStyle },
         React.createElement("h3", { style: styles.cardName }, t("modelCardTitle")),
         head,
-        React.createElement("div", { style: styles.tableBody }, rows)
+        React.createElement("div", { style: { ...styles.tableBody, flex: "1 1 0", minHeight: 0 } }, rows)
       );
     }
 
@@ -379,9 +383,11 @@ window.__ModuleLoader__.load({
       const usage = value.usage || {};
       const slides = [
         React.createElement("div", { key: "overview", style: styles.slide },
-          React.createElement(WindowCard, { name: t("rolling"), quotaUsd: QUOTAS.rolling, windowData: usage.rolling, t }),
-          React.createElement(WindowCard, { name: t("weekly"), quotaUsd: QUOTAS.weekly, windowData: usage.weekly, t }),
-          React.createElement(WindowCard, { name: t("monthly"), quotaUsd: QUOTAS.monthly, windowData: usage.monthly, t })
+          React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10, flex: "1 1 0", minHeight: 0 } },
+            React.createElement(WindowCard, { grow: true, name: t("rolling"), quotaUsd: QUOTAS.rolling, windowData: usage.rolling, t }),
+            React.createElement(WindowCard, { grow: true, name: t("weekly"), quotaUsd: QUOTAS.weekly, windowData: usage.weekly, t }),
+            React.createElement(WindowCard, { grow: true, name: t("monthly"), quotaUsd: QUOTAS.monthly, windowData: usage.monthly, t })
+          )
         ),
         React.createElement("div", { key: "models", style: styles.slide },
           React.createElement(ModelTable, { t })
