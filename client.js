@@ -1,13 +1,16 @@
 // dsh-opencode-go-usage —— 客户端半（浏览器 bundle）。
 //
 // 以 lazy-CJS 格式交给客户端模块加载器：这里只注册工厂函数，
-// 真正执行发生在物化（materialize）时。做的事有四件：
+// 真正执行发生在物化（materialize）时。做的事有五件：
 //   1. 挂载 opencodeUsage Typert Remote（拿到调用 Host 的通道）
 //   2. 注册 settings.section 侧边栏分区「OpenCode Go」（常驻入口）
 //   3. 注册 conversation.input.right 工具行控件：当会话当前模型是
 //      opencode-go 时，在模型选择器旁边显示一个闪电图标按钮；
-//      悬停显示用量百分比，点击弹出独立 Modal 看三个窗口明细
-//   4. 渲染用量页面：三个窗口的进度条 / 百分比 / 限额 / 重置时间
+//      悬停显示用量百分比，点击弹出独立 Modal
+//   4. 弹窗内为左右滑动卡片（v0.3.0）：卡0 = Go 用量总览（三窗口 +
+//      按配额换算已用金额），后续卡 = 每个模型的限额（可维护的限额表，
+//      存 localStorage），末卡 = 限额表管理
+//   5. 渲染用量页面：三个窗口的进度条 / 百分比 / 换算金额 / 重置时间
 //
 // 注意：结果/参数编解码器是透传——业务结果在 Host 侧已用 zod 校验过，
 // 这里只需要描述符的严格形态来挂载和调用，不再重复校验。
@@ -19,7 +22,7 @@ window.__ModuleLoader__.load({
     var exports = module.exports;
     Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
     const React = require("react");
-    const { useCallback, useEffect, useState, useSyncExternalStore } = React;
+    const { useCallback, useEffect, useRef, useState, useSyncExternalStore } = React;
     // primitives 是 web shell 注册的 shell-own 模块，可直接 require。
     const { Modal, Tooltip } = require("@deepseek-ai/dsh-client-ui-primitives");
 
@@ -44,6 +47,7 @@ window.__ModuleLoader__.load({
       monthly: "每月",
       limit: "限额",
       reset: "重置",
+      used: "已用",
       unknown: "未知",
       footnote: "限额为展示参考，以 OpenCode Go 实际套餐为准。",
       short5h: "5h",
@@ -51,6 +55,20 @@ window.__ModuleLoader__.load({
       shortM: "月",
       openUsage: "查看 OpenCode Go 用量",
       noData: "暂无用量数据",
+      // v0.3.0 轮播 + 限额表
+      swipeHint: "左右滑动查看模型限额 →",
+      modelLimits: "模型限额",
+      model: "模型",
+      monthlyCap: "月额度上限",
+      reqHint: "请求上限（次）",
+      accountMonthly: "套餐月用量",
+      manage: "管理限额表",
+      addModel: "添加模型",
+      resetDefaults: "恢复默认",
+      deleteM: "删除",
+      name: "名称",
+      noModels: "暂无模型限额 — 滑到最右添加",
+      dataNote: "官方接口未提供单模型用量；限额为政策参考，随套餐变动。",
     };
     const en = {
       nav: "OpenCode Go",
@@ -69,6 +87,7 @@ window.__ModuleLoader__.load({
       monthly: "Monthly",
       limit: "limit",
       reset: "resets",
+      used: "used",
       unknown: "unknown",
       footnote: "Limits shown for reference only; follow your OpenCode Go plan.",
       short5h: "5h",
@@ -76,6 +95,20 @@ window.__ModuleLoader__.load({
       shortM: "M",
       openUsage: "View OpenCode Go usage",
       noData: "No usage data yet",
+      // v0.3.0 carousel + limit table
+      swipeHint: "Swipe to see model limits →",
+      modelLimits: "Model limits",
+      model: "Model",
+      monthlyCap: "Monthly cap",
+      reqHint: "Request cap",
+      accountMonthly: "Plan monthly usage",
+      manage: "Manage limits",
+      addModel: "Add model",
+      resetDefaults: "Reset defaults",
+      deleteM: "Remove",
+      name: "Name",
+      noModels: "No model limits yet — swipe to the end to add",
+      dataNote: "No per-model usage from the official API; limits are policy references and may change.",
     };
 
     // ---------- Remote 描述符 ----------
@@ -110,8 +143,54 @@ window.__ModuleLoader__.load({
       ],
     };
 
-    // 展示用限额（接口不返回限额字段，仅供直观参考）。
-    const LIMITS = { rolling: "$12", weekly: "$30", monthly: "$60" };
+    // ---------- 配额与限额表 ----------
+    // 官方配额（政策数字，用于 percent×配额换算已用金额；接口不返回）。
+    const QUOTAS = { rolling: 12, weekly: 30, monthly: 60 };
+    // 限额表：localStorage 持久化，UI 可维护，默认仅 DeepSeek（社区公开政策：月上限 $30）。
+    const LIMITS_STORAGE_KEY = "opencode-go-usage.limits.v1";
+    const DEFAULT_LIMITS = [
+      { id: "deepseek", name: "DeepSeek", monthlyUsd: 30, req5h: null, reqWeek: null, reqMonth: null },
+    ];
+    function normalizeEntry(v) {
+      const num = (x) => (typeof x === "number" && Number.isFinite(x) ? x : null);
+      return {
+        id: String(v && v.id || ("m" + Date.now() + Math.random().toString(36).slice(2, 6))),
+        name: String(v && v.name || ""),
+        monthlyUsd: num(v && v.monthlyUsd),
+        req5h: num(v && v.req5h),
+        reqWeek: num(v && v.reqWeek),
+        reqMonth: num(v && v.reqMonth),
+      };
+    }
+    function loadLimits() {
+      try {
+        const raw = localStorage.getItem(LIMITS_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) return parsed.map(normalizeEntry);
+        }
+      } catch { /* 损坏则回退默认 */ }
+      return DEFAULT_LIMITS.map(normalizeEntry);
+    }
+    function persistLimits(list) {
+      try { localStorage.setItem(LIMITS_STORAGE_KEY, JSON.stringify(list)); } catch { /* 忽略 */ }
+    }
+    function usd(n) {
+      return Number.isFinite(n) ? "$" + n.toFixed(2) : "—";
+    }
+
+    // 注入一次轮播滚动条样式（懒执行，幂等）。
+    let cssInjected = false;
+    function ensureCarouselCss() {
+      if (cssInjected) return;
+      cssInjected = true;
+      try {
+        const style = document.createElement("style");
+        style.textContent =
+          ".ocu-track{scrollbar-width:none}.ocu-track::-webkit-scrollbar{display:none}";
+        document.head.appendChild(style);
+      } catch { /* 忽略 */ }
+    }
 
     // ---------- 样式（跟随 harness 主题变量） ----------
     const styles = {
@@ -126,9 +205,21 @@ window.__ModuleLoader__.load({
       barTrack: { height: 8, borderRadius: 4, background: "var(--dsw-alias-bg-layer-1)", overflow: "hidden" },
       barFill: { height: "100%", borderRadius: 4, background: "var(--dsw-alias-state-business-primary)", transition: "width .2s ease" },
       row: { display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--dsw-alias-label-secondary)", gap: 8 },
+      rowLabel: { color: "var(--dsw-alias-label-tertiary)", fontSize: 12 },
       button: { alignSelf: "flex-start", border: "1px solid var(--dsw-alias-border-l2)", color: "var(--dsw-alias-label-primary)", font: "inherit", cursor: "pointer", background: "transparent", borderRadius: 6, padding: "5px 12px" },
       // 工具行小按钮：无边框幽灵按钮，跟随主题色。
       toolButton: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, padding: 0, border: "none", background: "transparent", color: "var(--dsw-alias-label-secondary)", cursor: "pointer", borderRadius: 4 },
+      // v0.3.0 轮播
+      carouselWrap: { display: "flex", flexDirection: "column", gap: 10, padding: "2px 0 4px" },
+      track: { display: "flex", gap: 12, overflowX: "auto", scrollSnapType: "x mandatory", scrollbarWidth: "none", paddingBottom: 2 },
+      slide: { minWidth: "calc(100% - 44px)", scrollSnapAlign: "start", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: 10 },
+      dots: { display: "flex", alignItems: "center", justifyContent: "center", gap: 10 },
+      dot: { width: 7, height: 7, borderRadius: "50%", border: "1px solid var(--dsw-alias-border-l2)", background: "transparent", cursor: "pointer", padding: 0, flex: "none" },
+      dotActive: { background: "var(--dsw-alias-state-business-primary)", borderColor: "var(--dsw-alias-state-business-primary)" },
+      arrow: { border: "none", background: "transparent", color: "var(--dsw-alias-label-secondary)", cursor: "pointer", fontSize: 16, padding: "0 6px", lineHeight: 1 },
+      input: { background: "var(--dsw-alias-bg-layer-1)", border: "1px solid var(--dsw-alias-border-l2)", color: "var(--dsw-alias-label-primary)", borderRadius: 6, padding: "4px 6px", fontSize: 12, font: "inherit", width: "100%", boxSizing: "border-box" },
+      editorRow: { display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--dsw-alias-border-l1)" },
+      btnRow: { display: "flex", gap: 10, marginTop: 4 },
     };
 
     function fmtReset(resetsAt, t) {
@@ -139,28 +230,32 @@ window.__ModuleLoader__.load({
     }
 
     // ---------- 单个用量窗口卡片 ----------
+    // quotaUsd: 该窗口的政策配额（$），用于换算已用金额。
     function WindowCard(props) {
-      const { name, limit, windowData, t } = props;
+      const { name, quotaUsd, windowData, t } = props;
       const percent = windowData && typeof windowData.percent === "number" ? windowData.percent : null;
       const pct = percent === null ? 0 : Math.max(0, Math.min(100, percent));
+      const used = percent === null ? null : (pct / 100) * quotaUsd;
       return React.createElement("div", { style: styles.card },
         React.createElement("div", { style: styles.cardHead },
           React.createElement("h3", { style: styles.cardName }, name),
-          React.createElement("p", { style: styles.cardMeta }, t("limit") + ": " + limit)
+          React.createElement("p", { style: styles.cardMeta }, t("limit") + ": " + usd(quotaUsd))
         ),
         React.createElement("div", { style: styles.barTrack },
           React.createElement("div", { style: { ...styles.barFill, width: pct + "%" } })
         ),
         React.createElement("div", { style: styles.row },
-          React.createElement("span", null, percent === null ? t("unknown") : percent + "%"),
+          React.createElement("span", null, percent === null ? t("unknown") : pct + "%"),
           React.createElement("span", null, t("reset") + ": " + fmtReset(windowData && windowData.resetsAt, t))
+        ),
+        React.createElement("div", { style: styles.row },
+          React.createElement("span", null, t("used") + " " + usd(used) + " / " + usd(quotaUsd)),
+          React.createElement("span", { style: styles.rowLabel }, t("limit"))
         )
       );
     }
 
     // ---------- 闪电图标 ----------
-    // 简洁的闪电（bolt）图形，语义 = 消耗/配额。图标集里没有现成的
-    // bolt，这里手绘一个标准的闪电多边形，跟随 currentColor。
     function BoltIcon(props) {
       const { size = 16 } = props;
       return React.createElement("svg",
@@ -169,10 +264,7 @@ window.__ModuleLoader__.load({
       );
     }
 
-    // ---------- 用量主体（设置页与弹窗共用） ----------
-    // query: () => Promise<result.value>；组件内部管理 loading / 错误 / 数据态。
-    // showFootnote: 是否显示"限额为展示参考"脚注（设置页显示，弹窗不显示）。
-    // showRefresh: 是否显示"刷新"按钮（设置页显示；弹窗打开即强刷，关掉重开即可重试）。
+    // ---------- 用量主体（设置页用：堆叠卡片 + 脚注 + 刷新） ----------
     function UsageBody(props) {
       const { query, t, title, showFootnote = false, showRefresh = true } = props;
       const [state, setState] = React.useState({ kind: "loading" });
@@ -228,11 +320,206 @@ window.__ModuleLoader__.load({
       const usage = value.usage || {};
       return React.createElement("div", { style: styles.wrap },
         title ? React.createElement("h2", { style: styles.title }, title) : null,
-        React.createElement(WindowCard, { name: t("rolling"), limit: LIMITS.rolling, windowData: usage.rolling, t }),
-        React.createElement(WindowCard, { name: t("weekly"), limit: LIMITS.weekly, windowData: usage.weekly, t }),
-        React.createElement(WindowCard, { name: t("monthly"), limit: LIMITS.monthly, windowData: usage.monthly, t }),
+        React.createElement(WindowCard, { name: t("rolling"), quotaUsd: QUOTAS.rolling, windowData: usage.rolling, t }),
+        React.createElement(WindowCard, { name: t("weekly"), quotaUsd: QUOTAS.weekly, windowData: usage.weekly, t }),
+        React.createElement(WindowCard, { name: t("monthly"), quotaUsd: QUOTAS.monthly, windowData: usage.monthly, t }),
         showFootnote ? React.createElement("p", { style: styles.hint }, t("footnote")) : null,
         showRefresh ? React.createElement("button", { style: styles.button, onClick: load }, t("refresh")) : null
+      );
+    }
+
+    // ---------- 轮播弹窗（v0.3.0） ----------
+    // 卡0：Go 用量总览；卡1..N：每个模型的限额；末卡：限额表管理。
+    function CarouselUsage(props) {
+      const { query, t } = props;
+      const [state, setState] = React.useState({ kind: "loading" });
+      const [limits, setLimits] = React.useState(loadLimits);
+      const [active, setActive] = React.useState(0);
+      const trackRef = useRef(null);
+
+      const load = React.useCallback(() => {
+        setState({ kind: "loading" });
+        Promise.resolve()
+          .then(() => query())
+          .then((result) => {
+            if (!result || result.ok === false) {
+              setState({ kind: "failure", message: (result && result.error && result.error.message) || "remote failed" });
+              return;
+            }
+            setState({ kind: "done", value: result.value });
+          })
+          .catch((e) => setState({ kind: "failure", message: String((e && e.message) || e) }));
+      }, [query]);
+
+      React.useEffect(() => { load(); }, [load]);
+      React.useEffect(() => { persistLimits(limits); }, [limits]);
+
+      // 轮播页码计算：单页步进 = clientWidth - 44(slide 缩进) + 12(gap)
+      const pageStep = () => {
+        const el = trackRef.current;
+        return el && el.clientWidth > 0 ? el.clientWidth - 44 + 12 : 0;
+      };
+      const onScroll = () => {
+        const el = trackRef.current;
+        const step = pageStep();
+        if (!el || step <= 0) return;
+        setActive(Math.max(0, Math.min(slideCount(), Math.round(el.scrollLeft / step))));
+      };
+      const goTo = (i) => {
+        const el = trackRef.current;
+        const step = pageStep();
+        if (el && step > 0) el.scrollTo({ left: i * step, behavior: "smooth" });
+        setActive(i);
+      };
+
+      // ---- 各卡片内容 ----
+      const overviewSlide = (usage) => React.createElement("div", { key: "overview", style: styles.slide },
+        React.createElement("p", { style: styles.hint }, t("swipeHint")),
+        React.createElement(WindowCard, { name: t("rolling"), quotaUsd: QUOTAS.rolling, windowData: usage.rolling, t }),
+        React.createElement(WindowCard, { name: t("weekly"), quotaUsd: QUOTAS.weekly, windowData: usage.weekly, t }),
+        React.createElement(WindowCard, { name: t("monthly"), quotaUsd: QUOTAS.monthly, windowData: usage.monthly, t })
+      );
+
+      const modelSlide = (m, monthlyPct, i) => {
+        const fmtReq = (v) => (v === null || v === undefined ? "—" : String(v));
+        const rows = [
+          [t("monthlyCap"), usd(m.monthlyUsd)],
+          [t("short5h") + " " + t("reqHint"), fmtReq(m.req5h)],
+          [t("shortW") + " " + t("reqHint"), fmtReq(m.reqWeek)],
+          [t("shortM") + " " + t("reqHint"), fmtReq(m.reqMonth)],
+          [t("accountMonthly"), (monthlyPct === null ? "—" : monthlyPct + "%")],
+        ];
+        return React.createElement("div", { key: "model-" + m.id, style: styles.slide },
+          React.createElement("div", { style: styles.card },
+            React.createElement("div", { style: styles.cardHead },
+              React.createElement("h3", { style: styles.cardName }, m.name || t("unknown")),
+              React.createElement("p", { style: styles.cardMeta }, t("modelLimits"))
+            ),
+            rows.map((r, ri) =>
+              React.createElement("div", { key: ri, style: styles.row },
+                React.createElement("span", { style: styles.rowLabel }, r[0]),
+                React.createElement("span", null, r[1])
+              )
+            )
+          )
+        );
+      };
+
+      const emptyModelSlide = () => React.createElement("div", { key: "models-empty", style: styles.slide },
+        React.createElement("div", { style: styles.card },
+          React.createElement("p", { style: styles.hint }, t("noModels"))
+        )
+      );
+
+      const updateEntry = (id, patch) =>
+        setLimits((list) => list.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+      const removeEntry = (id) => setLimits((list) => list.filter((x) => x.id !== id));
+      const addEntry = () =>
+        setLimits((list) => [...list, normalizeEntry({ id: "m" + Date.now(), name: "", monthlyUsd: null })]);
+      const resetDefaults = () => setLimits(DEFAULT_LIMITS.map(normalizeEntry));
+
+      const inputNum = (v) => (v === null || v === undefined || v === "" ? "" : String(v));
+      const parseNum = (s) => (s === "" ? null : Number(s));
+
+      const manageSlide = () => React.createElement("div", { key: "manage", style: styles.slide },
+        React.createElement("h3", { style: styles.title }, t("manage")),
+        limits.map((m) =>
+          React.createElement("div", { key: m.id, style: styles.editorRow },
+            React.createElement("input", {
+              style: { ...styles.input, flex: 1.4, minWidth: 70 },
+              value: m.name,
+              placeholder: t("name"),
+              onChange: (e) => updateEntry(m.id, { name: e.target.value }),
+            }),
+            React.createElement("input", {
+              style: { ...styles.input, width: 74 },
+              type: "number", min: 0, step: 1,
+              value: inputNum(m.monthlyUsd),
+              title: t("monthlyCap"),
+              onChange: (e) => updateEntry(m.id, { monthlyUsd: parseNum(e.target.value) }),
+            }),
+            React.createElement("input", {
+              style: { ...styles.input, width: 60 },
+              type: "number", min: 0, step: 1,
+              value: inputNum(m.req5h),
+              title: t("short5h") + " " + t("reqHint"),
+              onChange: (e) => updateEntry(m.id, { req5h: parseNum(e.target.value) }),
+            }),
+            React.createElement("input", {
+              style: { ...styles.input, width: 60 },
+              type: "number", min: 0, step: 1,
+              value: inputNum(m.reqWeek),
+              title: t("shortW") + " " + t("reqHint"),
+              onChange: (e) => updateEntry(m.id, { reqWeek: parseNum(e.target.value) }),
+            }),
+            React.createElement("input", {
+              style: { ...styles.input, width: 60 },
+              type: "number", min: 0, step: 1,
+              value: inputNum(m.reqMonth),
+              title: t("shortM") + " " + t("reqHint"),
+              onChange: (e) => updateEntry(m.id, { reqMonth: parseNum(e.target.value) }),
+            }),
+            React.createElement("button", { style: styles.button, onClick: () => removeEntry(m.id) }, t("deleteM"))
+          )
+        ),
+        React.createElement("div", { style: styles.btnRow },
+          React.createElement("button", { style: styles.button, onClick: addEntry }, t("addModel")),
+          React.createElement("button", { style: styles.button, onClick: resetDefaults }, t("resetDefaults"))
+        )
+      );
+
+      const slideCount = () => 1 + (limits.length > 0 ? limits.length : 1) + 1;
+
+      // ---- 状态渲染 ----
+      if (state.kind === "loading") {
+        return React.createElement("p", { style: styles.hint }, t("loading"));
+      }
+      if (state.kind === "failure") {
+        return React.createElement("p", { style: styles.error }, state.message);
+      }
+      const value = state.value || {};
+      if (value.configured !== true) {
+        return React.createElement("p", { style: styles.error },
+          value.reason === "no-api-key" ? t("noApiKey") : t("notInModels"));
+      }
+      if (value.error) {
+        let msg = value.error;
+        if (value.error === "unauthorized") msg = t("unauthorized");
+        else if (value.error === "network") msg = t("network");
+        else if (value.error === "bad-json") msg = t("badJson");
+        else if (value.error.startsWith("http-")) msg = t("httpError").replace("{status}", value.error.slice(5));
+        return React.createElement("p", { style: styles.error }, msg);
+      }
+
+      const usage = value.usage || {};
+      const monthlyPct = usage.monthly && typeof usage.monthly.percent === "number" ? usage.monthly.percent : null;
+
+      const slides = [overviewSlide(usage)];
+      if (limits.length > 0) {
+        limits.forEach((m, i) => slides.push(modelSlide(m, monthlyPct, i)));
+      } else {
+        slides.push(emptyModelSlide());
+      }
+      slides.push(manageSlide());
+
+      return React.createElement("div", { style: styles.carouselWrap },
+        React.createElement("div", { ref: trackRef, className: "ocu-track", style: styles.track, onScroll },
+          slides
+        ),
+        React.createElement("div", { style: styles.dots },
+          React.createElement("button", { style: styles.arrow, type: "button", "aria-label": "<", onClick: () => goTo(Math.max(0, active - 1)) }, "‹"),
+          slides.map((s, i) =>
+            React.createElement("button", {
+              key: i,
+              type: "button",
+              style: i === active ? { ...styles.dot, ...styles.dotActive } : styles.dot,
+              "aria-label": "card " + (i + 1),
+              onClick: () => goTo(i),
+            })
+          ),
+          React.createElement("button", { style: styles.arrow, type: "button", "aria-label": ">", onClick: () => goTo(Math.min(slides.length - 1, active + 1)) }, "›")
+        ),
+        React.createElement("p", { style: styles.hint }, t("dataNote"))
       );
     }
 
@@ -244,21 +531,17 @@ window.__ModuleLoader__.load({
     }
 
     // ---------- 工具行控件（conversation.input.right） ----------
-    // 仅当当前会话模型 provider 为 opencode-go 时渲染；悬停显示用量，
-    // 点击弹出独立 Modal（打开即强制刷新）。
     function UsageButton(props) {
       const { directory, query, forceQuery, t } = props;
       const [open, setOpen] = React.useState(false);
       const [usage, setUsage] = React.useState(null);
 
-      // 订阅会话模型目录：当前选择的提供方变化时驱动显隐。
       const state = useSyncExternalStore(
         (fn) => directory.subscribe(fn),
         () => directory.getSnapshot()
       );
       const isOpencode = !!(state && state.current && state.current.provider === "opencode-go");
 
-      // 可见时用缓存查询拉一次用量（Host 60s 缓存，成本可忽略）。
       useEffect(() => {
         if (!isOpencode) return;
         let alive = true;
@@ -266,7 +549,6 @@ window.__ModuleLoader__.load({
         return () => { alive = false; };
       }, [isOpencode, query]);
 
-      // 弹窗关闭后回同步一次，让指针/提示跟上最新数据。
       useEffect(() => {
         if (open || !isOpencode) return;
         let alive = true;
@@ -297,14 +579,14 @@ window.__ModuleLoader__.load({
             closeLabel: t("close"),
             contentClassName: "opencode-go-usage-modal-body",
           },
-          React.createElement(UsageBody, { query: forceQuery, t, showRefresh: false })
+          React.createElement(CarouselUsage, { query: forceQuery, t })
         )
       );
     }
 
     // ---------- 插件装配 ----------
     function apply(ctx) {
-      // 挂载 Remote：调用 Host 的 usage() 前必须先等它就绪。
+      ensureCarouselCss();
       const mountReady = ctx.remote.$mount(TYPERT_REMOTE);
       ctx.effect(() => ctx.locale.register(NS, { zh, en }), "opencode-go-usage: dictionaries");
       const t = ctx.locale.bind(NS);
