@@ -169,8 +169,8 @@ window.__ModuleLoader__.load({
       toolButton: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, padding: 0, border: "none", background: "transparent", color: "var(--dsw-alias-label-secondary)", cursor: "pointer", borderRadius: 4 },
       // 轮播
       carouselWrap: { display: "flex", flexDirection: "column", gap: 10, padding: "2px 0 4px" },
-      track: { display: "flex", gap: 12, overflowX: "auto", scrollSnapType: "x mandatory", scrollbarWidth: "none", paddingBottom: 2 },
-      slide: { minWidth: "calc(100% - 44px)", scrollSnapAlign: "start", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: 10 },
+      track: { display: "flex", gap: 12, overflowX: "auto", scrollSnapType: "x mandatory", scrollbarWidth: "none", paddingBottom: 2, height: 480 },
+      slide: { minWidth: "calc(100% - 44px)", scrollSnapAlign: "start", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: 10, height: "100%" },
       dots: { display: "flex", alignItems: "center", justifyContent: "center", gap: 10 },
       dot: { width: 7, height: 7, borderRadius: "50%", border: "1px solid var(--dsw-alias-border-l2)", background: "transparent", cursor: "pointer", padding: 0, flex: "none" },
       dotActive: { background: "var(--dsw-alias-state-business-primary)", borderColor: "var(--dsw-alias-state-business-primary)" },
@@ -204,7 +204,7 @@ window.__ModuleLoader__.load({
       const cardStyle = props.grow
         ? { ...styles.card, flex: "1 1 0", minHeight: 0 }
         : styles.card;
-      return React.createElement("div", { style: cardStyle },
+      return React.createElement("div", { style: { ...cardStyle, height: "100%" } },
         React.createElement("div", { style: styles.cardHead },
           React.createElement("h3", { style: styles.cardName }, name),
           React.createElement("p", { style: styles.cardMeta }, t("limit") + ": " + usd(quotaUsd))
@@ -309,8 +309,8 @@ window.__ModuleLoader__.load({
           React.createElement("span", { style: styles.colCap }, usd(m.monthlyUsd)),
         )
       );
-      const cardStyle = { ...styles.card, flex: "1 1 auto", minHeight: 0, maxHeight: 480 };
-      return React.createElement("div", { style: cardStyle },
+      const cardStyle = { ...styles.card, flex: "1 1 0", minHeight: 0 };
+      return React.createElement("div", { style: { ...cardStyle, height: "100%" } },
         React.createElement("h3", { style: styles.cardName }, t("modelCardTitle")),
         head,
         React.createElement("div", { style: { ...styles.tableBody, flex: "1 1 0", minHeight: 0 } }, rows)
@@ -383,7 +383,7 @@ window.__ModuleLoader__.load({
       const usage = value.usage || {};
       const slides = [
         React.createElement("div", { key: "overview", style: styles.slide },
-          React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10, flex: "1 1 auto", minHeight: 0 } },
+          React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10, flex: "1 1 0", minHeight: 0 } },
             React.createElement(WindowCard, { grow: true, name: t("rolling"), quotaUsd: QUOTAS.rolling, windowData: usage.rolling, t }),
             React.createElement(WindowCard, { grow: true, name: t("weekly"), quotaUsd: QUOTAS.weekly, windowData: usage.weekly, t }),
             React.createElement(WindowCard, { grow: true, name: t("monthly"), quotaUsd: QUOTAS.monthly, windowData: usage.monthly, t })
