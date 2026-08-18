@@ -10,7 +10,7 @@ A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web GUI pl
 
 - Adds an **OpenCode Go** section to the Settings sidebar (`settings.section` contribution), always available
 - Adds a **usage bolt button** to the composer tool row (`conversation.input.right`): when the active model is `opencode-go`, a lightning-bolt icon appears next to the model selector; hovering shows the three windows' percentages, clicking opens a standalone modal (fresh data on open, bypassing the cache)
-- The modal is a **swipeable carousel** (v0.3.1): the default card shows Go usage (three windows + dollar conversion), while the next card shows every supported OpenCode Go model, its monthly cap, and 5h/weekly/monthly request caps
+- The modal is a **swipeable carousel**: the default card shows Go usage (three windows + dollar conversion), while the next card shows every supported OpenCode Go model and its monthly cap
 - The model limit table is read-only and requires no extra configuration
 - Host-side Typert Remote `opencodeUsage/usage`: resolves the API key and calls the official usage endpoint; supports a `force` parameter to bypass the cache
 - Client usage page: percentage, progress bar, reference limit and reset time per window

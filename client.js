@@ -54,13 +54,9 @@ window.__ModuleLoader__.load({
       shortM: "月",
       openUsage: "查看 OpenCode Go 用量",
       noData: "暂无用量数据",
-      swipeHint: "← 左右滑动 →",
       modelCardTitle: "支持的模型与月额度",
       capCol: "月额度",
       model: "模型",
-      fiveHour: "5h",
-      week: "周",
-      month: "月",
     };
     const en = {
       nav: "OpenCode Go",
@@ -87,13 +83,9 @@ window.__ModuleLoader__.load({
       shortM: "M",
       openUsage: "View OpenCode Go usage",
       noData: "No usage data yet",
-      swipeHint: "← swipe →",
       modelCardTitle: "Supported models & monthly caps",
       capCol: "Cap",
       model: "Model",
-      fiveHour: "5h",
-      week: "W",
-      month: "M",
     };
 
     // ---------- Remote 描述符 ----------
@@ -134,34 +126,34 @@ window.__ModuleLoader__.load({
     // 数据来源：opencode.ai/docs/go（公开文档，含每模型月额度和 5h/周/月
     // 请求上限估算）与 /zen/go/v1/models（模型清单）。无公开数据的模型
     // 显示 "—"。清单随官方调整，需更新时改这里即可。
-    // 字段：id, name, monthlyUsd(月额度), req5h/reqWeek/reqMonth(请求上限)
+    // 字段：id, name, monthlyUsd(月额度)
     const MODEL_LIST = [
-      { id: "grok-4.5", name: "Grok 4.5", monthlyUsd: 15, req5h: 120, reqWeek: 300, reqMonth: 600 },
-      { id: "gpt-5.6-luna", name: "GPT 5.6 Luna", monthlyUsd: 15, req5h: 2050, reqWeek: 5100, reqMonth: 10250 },
-      { id: "glm-5.3", name: "GLM 5.3", monthlyUsd: 15, req5h: 220, reqWeek: 540, reqMonth: 1080 },
-      { id: "glm-5.2", name: "GLM 5.2", monthlyUsd: 60, req5h: 880, reqWeek: 2150, reqMonth: 4300 },
-      { id: "glm-5.1", name: "GLM 5.1", monthlyUsd: 60, req5h: 880, reqWeek: 2150, reqMonth: 4300 },
-      { id: "glm-5", name: "GLM 5", monthlyUsd: null, req5h: null, reqWeek: null, reqMonth: null },
-      { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro", monthlyUsd: 15, req5h: 1050, reqWeek: 2600, reqMonth: 5200 },
-      { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash", monthlyUsd: 30, req5h: 7600, reqWeek: 18900, reqMonth: 37800 },
-      { id: "kimi-k3", name: "Kimi K3", monthlyUsd: 15, req5h: 110, reqWeek: 250, reqMonth: 490 },
-      { id: "kimi-k2.7-code", name: "Kimi K2.7 Code", monthlyUsd: 60, req5h: 1350, reqWeek: 3380, reqMonth: 6750 },
-      { id: "kimi-k2.6", name: "Kimi K2.6", monthlyUsd: 60, req5h: 1150, reqWeek: 2880, reqMonth: 5750 },
-      { id: "kimi-k2.5", name: "Kimi K2.5", monthlyUsd: null, req5h: null, reqWeek: null, reqMonth: null },
-      { id: "qwen3.8-max", name: "Qwen3.8 Max", monthlyUsd: 15, req5h: 160, reqWeek: 400, reqMonth: 810 },
-      { id: "qwen3.7-max", name: "Qwen3.7 Max", monthlyUsd: 60, req5h: 340, reqWeek: 840, reqMonth: 1690 },
-      { id: "qwen3.7-plus", name: "Qwen3.7 Plus", monthlyUsd: 60, req5h: 4300, reqWeek: 10800, reqMonth: 21600 },
-      { id: "qwen3.6-plus", name: "Qwen3.6 Plus", monthlyUsd: 60, req5h: 3300, reqWeek: 8200, reqMonth: 16300 },
-      { id: "qwen3.5-plus", name: "Qwen3.5 Plus", monthlyUsd: null, req5h: null, reqWeek: null, reqMonth: null },
-      { id: "mimo-v2.5", name: "MiMo V2.5", monthlyUsd: 60, req5h: 30100, reqWeek: 75200, reqMonth: 150400 },
-      { id: "mimo-v2.5-pro", name: "MiMo V2.5 Pro", monthlyUsd: 15, req5h: 3250, reqWeek: 8150, reqMonth: 16300 },
-      { id: "mimo-v2-pro", name: "MiMo V2 Pro", monthlyUsd: null, req5h: null, reqWeek: null, reqMonth: null },
-      { id: "mimo-v2-omni", name: "MiMo V2 Omni", monthlyUsd: null, req5h: null, reqWeek: null, reqMonth: null },
-      { id: "minimax-m3", name: "MiniMax M3", monthlyUsd: 60, req5h: 3200, reqWeek: 8000, reqMonth: 16000 },
-      { id: "minimax-m2.7", name: "MiniMax M2.7", monthlyUsd: 60, req5h: 3400, reqWeek: 8500, reqMonth: 17000 },
-      { id: "minimax-m2.5", name: "MiniMax M2.5", monthlyUsd: 60, req5h: null, reqWeek: null, reqMonth: null },
-      { id: "hy3", name: "Hy3", monthlyUsd: 60, req5h: 4300, reqWeek: 10750, reqMonth: 21500 },
-      { id: "hy3-preview", name: "Hy3 Preview", monthlyUsd: null, req5h: null, reqWeek: null, reqMonth: null },
+      { id: "grok-4.5", name: "Grok 4.5", monthlyUsd: 15 },
+      { id: "gpt-5.6-luna", name: "GPT 5.6 Luna", monthlyUsd: 15 },
+      { id: "glm-5.3", name: "GLM 5.3", monthlyUsd: 15 },
+      { id: "glm-5.2", name: "GLM 5.2", monthlyUsd: 60 },
+      { id: "glm-5.1", name: "GLM 5.1", monthlyUsd: 60 },
+      { id: "glm-5", name: "GLM 5", monthlyUsd: null },
+      { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro", monthlyUsd: 15 },
+      { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash", monthlyUsd: 30 },
+      { id: "kimi-k3", name: "Kimi K3", monthlyUsd: 15 },
+      { id: "kimi-k2.7-code", name: "Kimi K2.7 Code", monthlyUsd: 60 },
+      { id: "kimi-k2.6", name: "Kimi K2.6", monthlyUsd: 60 },
+      { id: "kimi-k2.5", name: "Kimi K2.5", monthlyUsd: null },
+      { id: "qwen3.8-max", name: "Qwen3.8 Max", monthlyUsd: 15 },
+      { id: "qwen3.7-max", name: "Qwen3.7 Max", monthlyUsd: 60 },
+      { id: "qwen3.7-plus", name: "Qwen3.7 Plus", monthlyUsd: 60 },
+      { id: "qwen3.6-plus", name: "Qwen3.6 Plus", monthlyUsd: 60 },
+      { id: "qwen3.5-plus", name: "Qwen3.5 Plus", monthlyUsd: null },
+      { id: "mimo-v2.5", name: "MiMo V2.5", monthlyUsd: 60 },
+      { id: "mimo-v2.5-pro", name: "MiMo V2.5 Pro", monthlyUsd: 15 },
+      { id: "mimo-v2-pro", name: "MiMo V2 Pro", monthlyUsd: null },
+      { id: "mimo-v2-omni", name: "MiMo V2 Omni", monthlyUsd: null },
+      { id: "minimax-m3", name: "MiniMax M3", monthlyUsd: 60 },
+      { id: "minimax-m2.7", name: "MiniMax M2.7", monthlyUsd: 60 },
+      { id: "minimax-m2.5", name: "MiniMax M2.5", monthlyUsd: 60 },
+      { id: "hy3", name: "Hy3", monthlyUsd: 60 },
+      { id: "hy3-preview", name: "Hy3 Preview", monthlyUsd: null },
     ];
 
     // ---------- 样式（跟随 harness 主题变量） ----------
@@ -206,9 +198,6 @@ window.__ModuleLoader__.load({
     }
     function usd(n) {
       return Number.isFinite(n) ? "$" + n.toFixed(2) : "—";
-    }
-    function fmtNum(n) {
-      return Number.isFinite(n) ? n.toLocaleString("en-US") : "—";
     }
 
     // ---------- 单个用量窗口卡片 ----------
@@ -316,17 +305,11 @@ window.__ModuleLoader__.load({
       const head = React.createElement("div", { style: styles.tableHead },
         React.createElement("span", { style: styles.colModel }, t("model")),
         React.createElement("span", { style: styles.colCap }, t("capCol")),
-        React.createElement("span", { style: styles.colReq }, t("fiveHour")),
-        React.createElement("span", { style: styles.colReq }, t("week")),
-        React.createElement("span", { style: styles.colReq }, t("month"))
       );
       const rows = MODEL_LIST.map((m) =>
         React.createElement("div", { key: m.id, style: styles.tableRow },
           React.createElement("span", { style: styles.colModel, title: m.id }, m.name),
           React.createElement("span", { style: styles.colCap }, usd(m.monthlyUsd)),
-          React.createElement("span", { style: styles.colReq }, fmtNum(m.req5h)),
-          React.createElement("span", { style: styles.colReq }, fmtNum(m.reqWeek)),
-          React.createElement("span", { style: styles.colReq }, fmtNum(m.reqMonth))
         )
       );
       return React.createElement("div", { style: styles.card },
@@ -402,13 +385,11 @@ window.__ModuleLoader__.load({
       const usage = value.usage || {};
       const slides = [
         React.createElement("div", { key: "overview", style: styles.slide },
-          React.createElement("p", { style: styles.hint }, t("swipeHint")),
           React.createElement(WindowCard, { name: t("rolling"), quotaUsd: QUOTAS.rolling, windowData: usage.rolling, t }),
           React.createElement(WindowCard, { name: t("weekly"), quotaUsd: QUOTAS.weekly, windowData: usage.weekly, t }),
           React.createElement(WindowCard, { name: t("monthly"), quotaUsd: QUOTAS.monthly, windowData: usage.monthly, t })
         ),
         React.createElement("div", { key: "models", style: styles.slide },
-          React.createElement("p", { style: styles.hint }, t("swipeHint")),
           React.createElement(ModelTable, { t })
         ),
       ];
