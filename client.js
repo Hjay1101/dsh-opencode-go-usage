@@ -1,16 +1,15 @@
 // dsh-opencode-go-usage —— 客户端半（浏览器 bundle）。
 //
 // 以 lazy-CJS 格式交给客户端模块加载器：这里只注册工厂函数，
-// 真正执行发生在物化（materialize）时。做的事有五件：
+// 真正执行发生在物化（materialize）时。做的事有四件：
 //   1. 挂载 opencodeUsage Typert Remote（拿到调用 Host 的通道）
 //   2. 注册 settings.section 侧边栏分区「OpenCode Go」（常驻入口）
 //   3. 注册 conversation.input.right 工具行控件：当会话当前模型是
 //      opencode-go 时，在模型选择器旁边显示一个闪电图标按钮；
 //      悬停显示用量百分比，点击弹出独立 Modal
-//   4. 弹窗内为左右滑动卡片（v0.3.0）：卡0 = Go 用量总览（三窗口 +
-//      按配额换算已用金额），后续卡 = 每个模型的限额（可维护的限额表，
-//      存 localStorage），末卡 = 限额表管理
-//   5. 渲染用量页面：三个窗口的进度条 / 百分比 / 换算金额 / 重置时间
+//   4. 弹窗为左右滑动卡片（v0.3.1）：卡0 = Go 用量总览（三窗口 +
+//      按配额换算已用金额）；卡1 = 官方支持的模型与限额表（静态表，
+//      来自 opencode.ai/docs/go 公开文档 + /zen/go/v1/models 清单）
 //
 // 注意：结果/参数编解码器是透传——业务结果在 Host 侧已用 zod 校验过，
 // 这里只需要描述符的严格形态来挂载和调用，不再重复校验。
@@ -55,20 +54,13 @@ window.__ModuleLoader__.load({
       shortM: "月",
       openUsage: "查看 OpenCode Go 用量",
       noData: "暂无用量数据",
-      // v0.3.0 轮播 + 限额表
-      swipeHint: "左右滑动查看模型限额 →",
-      modelLimits: "模型限额",
+      swipeHint: "← 左右滑动 →",
+      modelCardTitle: "支持的模型与月额度",
+      capCol: "月额度",
       model: "模型",
-      monthlyCap: "月额度上限",
-      reqHint: "请求上限（次）",
-      accountMonthly: "套餐月用量",
-      manage: "管理限额表",
-      addModel: "添加模型",
-      resetDefaults: "恢复默认",
-      deleteM: "删除",
-      name: "名称",
-      noModels: "暂无模型限额 — 滑到最右添加",
-      dataNote: "官方接口未提供单模型用量；限额为政策参考，随套餐变动。",
+      fiveHour: "5h",
+      week: "周",
+      month: "月",
     };
     const en = {
       nav: "OpenCode Go",
@@ -95,24 +87,16 @@ window.__ModuleLoader__.load({
       shortM: "M",
       openUsage: "View OpenCode Go usage",
       noData: "No usage data yet",
-      // v0.3.0 carousel + limit table
-      swipeHint: "Swipe to see model limits →",
-      modelLimits: "Model limits",
+      swipeHint: "← swipe →",
+      modelCardTitle: "Supported models & monthly caps",
+      capCol: "Cap",
       model: "Model",
-      monthlyCap: "Monthly cap",
-      reqHint: "Request cap",
-      accountMonthly: "Plan monthly usage",
-      manage: "Manage limits",
-      addModel: "Add model",
-      resetDefaults: "Reset defaults",
-      deleteM: "Remove",
-      name: "Name",
-      noModels: "No model limits yet — swipe to the end to add",
-      dataNote: "No per-model usage from the official API; limits are policy references and may change.",
+      fiveHour: "5h",
+      week: "W",
+      month: "M",
     };
 
     // ---------- Remote 描述符 ----------
-    // 带一个 force 参数（true = 绕过 Host 缓存强制刷新），与 typert.host.js 对齐。
     const TYPERT_REMOTE = {
       package: "dsh-opencode-go-usage",
       descriptors: [
@@ -143,54 +127,42 @@ window.__ModuleLoader__.load({
       ],
     };
 
-    // ---------- 配额与限额表 ----------
-    // 官方配额（政策数字，用于 percent×配额换算已用金额；接口不返回）。
+    // ---------- 官方配额（政策数字，用于 percent×配额换算已用金额） ----------
     const QUOTAS = { rolling: 12, weekly: 30, monthly: 60 };
-    // 限额表：localStorage 持久化，UI 可维护，默认仅 DeepSeek（社区公开政策：月上限 $30）。
-    const LIMITS_STORAGE_KEY = "opencode-go-usage.limits.v1";
-    const DEFAULT_LIMITS = [
-      { id: "deepseek", name: "DeepSeek", monthlyUsd: 30, req5h: null, reqWeek: null, reqMonth: null },
-    ];
-    function normalizeEntry(v) {
-      const num = (x) => (typeof x === "number" && Number.isFinite(x) ? x : null);
-      return {
-        id: String(v && v.id || ("m" + Date.now() + Math.random().toString(36).slice(2, 6))),
-        name: String(v && v.name || ""),
-        monthlyUsd: num(v && v.monthlyUsd),
-        req5h: num(v && v.req5h),
-        reqWeek: num(v && v.reqWeek),
-        reqMonth: num(v && v.reqMonth),
-      };
-    }
-    function loadLimits() {
-      try {
-        const raw = localStorage.getItem(LIMITS_STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) return parsed.map(normalizeEntry);
-        }
-      } catch { /* 损坏则回退默认 */ }
-      return DEFAULT_LIMITS.map(normalizeEntry);
-    }
-    function persistLimits(list) {
-      try { localStorage.setItem(LIMITS_STORAGE_KEY, JSON.stringify(list)); } catch { /* 忽略 */ }
-    }
-    function usd(n) {
-      return Number.isFinite(n) ? "$" + n.toFixed(2) : "—";
-    }
 
-    // 注入一次轮播滚动条样式（懒执行，幂等）。
-    let cssInjected = false;
-    function ensureCarouselCss() {
-      if (cssInjected) return;
-      cssInjected = true;
-      try {
-        const style = document.createElement("style");
-        style.textContent =
-          ".ocu-track{scrollbar-width:none}.ocu-track::-webkit-scrollbar{display:none}";
-        document.head.appendChild(style);
-      } catch { /* 忽略 */ }
-    }
+    // ---------- 官方支持的模型与限额（静态表） ----------
+    // 数据来源：opencode.ai/docs/go（公开文档，含每模型月额度和 5h/周/月
+    // 请求上限估算）与 /zen/go/v1/models（模型清单）。无公开数据的模型
+    // 显示 "—"。清单随官方调整，需更新时改这里即可。
+    // 字段：id, name, monthlyUsd(月额度), req5h/reqWeek/reqMonth(请求上限)
+    const MODEL_LIST = [
+      { id: "grok-4.5", name: "Grok 4.5", monthlyUsd: 15, req5h: 120, reqWeek: 300, reqMonth: 600 },
+      { id: "gpt-5.6-luna", name: "GPT 5.6 Luna", monthlyUsd: 15, req5h: 2050, reqWeek: 5100, reqMonth: 10250 },
+      { id: "glm-5.3", name: "GLM 5.3", monthlyUsd: 15, req5h: 220, reqWeek: 540, reqMonth: 1080 },
+      { id: "glm-5.2", name: "GLM 5.2", monthlyUsd: 60, req5h: 880, reqWeek: 2150, reqMonth: 4300 },
+      { id: "glm-5.1", name: "GLM 5.1", monthlyUsd: 60, req5h: 880, reqWeek: 2150, reqMonth: 4300 },
+      { id: "glm-5", name: "GLM 5", monthlyUsd: null, req5h: null, reqWeek: null, reqMonth: null },
+      { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro", monthlyUsd: 15, req5h: 1050, reqWeek: 2600, reqMonth: 5200 },
+      { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash", monthlyUsd: 30, req5h: 7600, reqWeek: 18900, reqMonth: 37800 },
+      { id: "kimi-k3", name: "Kimi K3", monthlyUsd: 15, req5h: 110, reqWeek: 250, reqMonth: 490 },
+      { id: "kimi-k2.7-code", name: "Kimi K2.7 Code", monthlyUsd: 60, req5h: 1350, reqWeek: 3380, reqMonth: 6750 },
+      { id: "kimi-k2.6", name: "Kimi K2.6", monthlyUsd: 60, req5h: 1150, reqWeek: 2880, reqMonth: 5750 },
+      { id: "kimi-k2.5", name: "Kimi K2.5", monthlyUsd: null, req5h: null, reqWeek: null, reqMonth: null },
+      { id: "qwen3.8-max", name: "Qwen3.8 Max", monthlyUsd: 15, req5h: 160, reqWeek: 400, reqMonth: 810 },
+      { id: "qwen3.7-max", name: "Qwen3.7 Max", monthlyUsd: 60, req5h: 340, reqWeek: 840, reqMonth: 1690 },
+      { id: "qwen3.7-plus", name: "Qwen3.7 Plus", monthlyUsd: 60, req5h: 4300, reqWeek: 10800, reqMonth: 21600 },
+      { id: "qwen3.6-plus", name: "Qwen3.6 Plus", monthlyUsd: 60, req5h: 3300, reqWeek: 8200, reqMonth: 16300 },
+      { id: "qwen3.5-plus", name: "Qwen3.5 Plus", monthlyUsd: null, req5h: null, reqWeek: null, reqMonth: null },
+      { id: "mimo-v2.5", name: "MiMo V2.5", monthlyUsd: 60, req5h: 30100, reqWeek: 75200, reqMonth: 150400 },
+      { id: "mimo-v2.5-pro", name: "MiMo V2.5 Pro", monthlyUsd: 15, req5h: 3250, reqWeek: 8150, reqMonth: 16300 },
+      { id: "mimo-v2-pro", name: "MiMo V2 Pro", monthlyUsd: null, req5h: null, reqWeek: null, reqMonth: null },
+      { id: "mimo-v2-omni", name: "MiMo V2 Omni", monthlyUsd: null, req5h: null, reqWeek: null, reqMonth: null },
+      { id: "minimax-m3", name: "MiniMax M3", monthlyUsd: 60, req5h: 3200, reqWeek: 8000, reqMonth: 16000 },
+      { id: "minimax-m2.7", name: "MiniMax M2.7", monthlyUsd: 60, req5h: 3400, reqWeek: 8500, reqMonth: 17000 },
+      { id: "minimax-m2.5", name: "MiniMax M2.5", monthlyUsd: 60, req5h: null, reqWeek: null, reqMonth: null },
+      { id: "hy3", name: "Hy3", monthlyUsd: 60, req5h: 4300, reqWeek: 10750, reqMonth: 21500 },
+      { id: "hy3-preview", name: "Hy3 Preview", monthlyUsd: null, req5h: null, reqWeek: null, reqMonth: null },
+    ];
 
     // ---------- 样式（跟随 harness 主题变量） ----------
     const styles = {
@@ -209,7 +181,7 @@ window.__ModuleLoader__.load({
       button: { alignSelf: "flex-start", border: "1px solid var(--dsw-alias-border-l2)", color: "var(--dsw-alias-label-primary)", font: "inherit", cursor: "pointer", background: "transparent", borderRadius: 6, padding: "5px 12px" },
       // 工具行小按钮：无边框幽灵按钮，跟随主题色。
       toolButton: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, padding: 0, border: "none", background: "transparent", color: "var(--dsw-alias-label-secondary)", cursor: "pointer", borderRadius: 4 },
-      // v0.3.0 轮播
+      // 轮播
       carouselWrap: { display: "flex", flexDirection: "column", gap: 10, padding: "2px 0 4px" },
       track: { display: "flex", gap: 12, overflowX: "auto", scrollSnapType: "x mandatory", scrollbarWidth: "none", paddingBottom: 2 },
       slide: { minWidth: "calc(100% - 44px)", scrollSnapAlign: "start", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: 10 },
@@ -217,9 +189,13 @@ window.__ModuleLoader__.load({
       dot: { width: 7, height: 7, borderRadius: "50%", border: "1px solid var(--dsw-alias-border-l2)", background: "transparent", cursor: "pointer", padding: 0, flex: "none" },
       dotActive: { background: "var(--dsw-alias-state-business-primary)", borderColor: "var(--dsw-alias-state-business-primary)" },
       arrow: { border: "none", background: "transparent", color: "var(--dsw-alias-label-secondary)", cursor: "pointer", fontSize: 16, padding: "0 6px", lineHeight: 1 },
-      input: { background: "var(--dsw-alias-bg-layer-1)", border: "1px solid var(--dsw-alias-border-l2)", color: "var(--dsw-alias-label-primary)", borderRadius: 6, padding: "4px 6px", fontSize: 12, font: "inherit", width: "100%", boxSizing: "border-box" },
-      editorRow: { display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--dsw-alias-border-l1)" },
-      btnRow: { display: "flex", gap: 10, marginTop: 4 },
+      // 模型限额表
+      tableHead: { display: "flex", gap: 10, padding: "4px 12px", fontSize: 12, color: "var(--dsw-alias-label-tertiary)", borderBottom: "1px solid var(--dsw-alias-border-l1)" },
+      tableRow: { display: "flex", gap: 10, padding: "7px 12px", fontSize: 12, color: "var(--dsw-alias-label-secondary)", borderBottom: "1px solid var(--dsw-alias-border-l1)", alignItems: "center" },
+      tableBody: { overflowY: "auto", maxHeight: 360 },
+      colModel: { flex: 1.6, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "left" },
+      colCap: { flex: 0.7, textAlign: "right" },
+      colReq: { flex: 1, textAlign: "right" },
     };
 
     function fmtReset(resetsAt, t) {
@@ -227,6 +203,12 @@ window.__ModuleLoader__.load({
       const d = new Date(resetsAt);
       if (Number.isNaN(d.getTime())) return resetsAt;
       return d.toLocaleString();
+    }
+    function usd(n) {
+      return Number.isFinite(n) ? "$" + n.toFixed(2) : "—";
+    }
+    function fmtNum(n) {
+      return Number.isFinite(n) ? n.toLocaleString("en-US") : "—";
     }
 
     // ---------- 单个用量窗口卡片 ----------
@@ -328,12 +310,37 @@ window.__ModuleLoader__.load({
       );
     }
 
-    // ---------- 轮播弹窗（v0.3.0） ----------
-    // 卡0：Go 用量总览；卡1..N：每个模型的限额；末卡：限额表管理。
+    // ---------- 模型与限额表 ----------
+    function ModelTable(props) {
+      const { t } = props;
+      const head = React.createElement("div", { style: styles.tableHead },
+        React.createElement("span", { style: styles.colModel }, t("model")),
+        React.createElement("span", { style: styles.colCap }, t("capCol")),
+        React.createElement("span", { style: styles.colReq }, t("fiveHour")),
+        React.createElement("span", { style: styles.colReq }, t("week")),
+        React.createElement("span", { style: styles.colReq }, t("month"))
+      );
+      const rows = MODEL_LIST.map((m) =>
+        React.createElement("div", { key: m.id, style: styles.tableRow },
+          React.createElement("span", { style: styles.colModel, title: m.id }, m.name),
+          React.createElement("span", { style: styles.colCap }, usd(m.monthlyUsd)),
+          React.createElement("span", { style: styles.colReq }, fmtNum(m.req5h)),
+          React.createElement("span", { style: styles.colReq }, fmtNum(m.reqWeek)),
+          React.createElement("span", { style: styles.colReq }, fmtNum(m.reqMonth))
+        )
+      );
+      return React.createElement("div", { style: styles.card },
+        React.createElement("h3", { style: styles.cardName }, t("modelCardTitle")),
+        head,
+        React.createElement("div", { style: styles.tableBody }, rows)
+      );
+    }
+
+    // ---------- 轮播弹窗（v0.3.1） ----------
+    // 卡0：Go 用量总览；卡1：支持的模型与限额表。
     function CarouselUsage(props) {
       const { query, t } = props;
       const [state, setState] = React.useState({ kind: "loading" });
-      const [limits, setLimits] = React.useState(loadLimits);
       const [active, setActive] = React.useState(0);
       const trackRef = useRef(null);
 
@@ -352,18 +359,17 @@ window.__ModuleLoader__.load({
       }, [query]);
 
       React.useEffect(() => { load(); }, [load]);
-      React.useEffect(() => { persistLimits(limits); }, [limits]);
 
-      // 轮播页码计算：单页步进 = clientWidth - 44(slide 缩进) + 12(gap)
       const pageStep = () => {
         const el = trackRef.current;
         return el && el.clientWidth > 0 ? el.clientWidth - 44 + 12 : 0;
       };
+      const slideCount = 2;
       const onScroll = () => {
         const el = trackRef.current;
         const step = pageStep();
         if (!el || step <= 0) return;
-        setActive(Math.max(0, Math.min(slideCount(), Math.round(el.scrollLeft / step))));
+        setActive(Math.max(0, Math.min(slideCount - 1, Math.round(el.scrollLeft / step))));
       };
       const goTo = (i) => {
         const el = trackRef.current;
@@ -371,104 +377,6 @@ window.__ModuleLoader__.load({
         if (el && step > 0) el.scrollTo({ left: i * step, behavior: "smooth" });
         setActive(i);
       };
-
-      // ---- 各卡片内容 ----
-      const overviewSlide = (usage) => React.createElement("div", { key: "overview", style: styles.slide },
-        React.createElement("p", { style: styles.hint }, t("swipeHint")),
-        React.createElement(WindowCard, { name: t("rolling"), quotaUsd: QUOTAS.rolling, windowData: usage.rolling, t }),
-        React.createElement(WindowCard, { name: t("weekly"), quotaUsd: QUOTAS.weekly, windowData: usage.weekly, t }),
-        React.createElement(WindowCard, { name: t("monthly"), quotaUsd: QUOTAS.monthly, windowData: usage.monthly, t })
-      );
-
-      const modelSlide = (m, monthlyPct, i) => {
-        const fmtReq = (v) => (v === null || v === undefined ? "—" : String(v));
-        const rows = [
-          [t("monthlyCap"), usd(m.monthlyUsd)],
-          [t("short5h") + " " + t("reqHint"), fmtReq(m.req5h)],
-          [t("shortW") + " " + t("reqHint"), fmtReq(m.reqWeek)],
-          [t("shortM") + " " + t("reqHint"), fmtReq(m.reqMonth)],
-          [t("accountMonthly"), (monthlyPct === null ? "—" : monthlyPct + "%")],
-        ];
-        return React.createElement("div", { key: "model-" + m.id, style: styles.slide },
-          React.createElement("div", { style: styles.card },
-            React.createElement("div", { style: styles.cardHead },
-              React.createElement("h3", { style: styles.cardName }, m.name || t("unknown")),
-              React.createElement("p", { style: styles.cardMeta }, t("modelLimits"))
-            ),
-            rows.map((r, ri) =>
-              React.createElement("div", { key: ri, style: styles.row },
-                React.createElement("span", { style: styles.rowLabel }, r[0]),
-                React.createElement("span", null, r[1])
-              )
-            )
-          )
-        );
-      };
-
-      const emptyModelSlide = () => React.createElement("div", { key: "models-empty", style: styles.slide },
-        React.createElement("div", { style: styles.card },
-          React.createElement("p", { style: styles.hint }, t("noModels"))
-        )
-      );
-
-      const updateEntry = (id, patch) =>
-        setLimits((list) => list.map((x) => (x.id === id ? { ...x, ...patch } : x)));
-      const removeEntry = (id) => setLimits((list) => list.filter((x) => x.id !== id));
-      const addEntry = () =>
-        setLimits((list) => [...list, normalizeEntry({ id: "m" + Date.now(), name: "", monthlyUsd: null })]);
-      const resetDefaults = () => setLimits(DEFAULT_LIMITS.map(normalizeEntry));
-
-      const inputNum = (v) => (v === null || v === undefined || v === "" ? "" : String(v));
-      const parseNum = (s) => (s === "" ? null : Number(s));
-
-      const manageSlide = () => React.createElement("div", { key: "manage", style: styles.slide },
-        React.createElement("h3", { style: styles.title }, t("manage")),
-        limits.map((m) =>
-          React.createElement("div", { key: m.id, style: styles.editorRow },
-            React.createElement("input", {
-              style: { ...styles.input, flex: 1.4, minWidth: 70 },
-              value: m.name,
-              placeholder: t("name"),
-              onChange: (e) => updateEntry(m.id, { name: e.target.value }),
-            }),
-            React.createElement("input", {
-              style: { ...styles.input, width: 74 },
-              type: "number", min: 0, step: 1,
-              value: inputNum(m.monthlyUsd),
-              title: t("monthlyCap"),
-              onChange: (e) => updateEntry(m.id, { monthlyUsd: parseNum(e.target.value) }),
-            }),
-            React.createElement("input", {
-              style: { ...styles.input, width: 60 },
-              type: "number", min: 0, step: 1,
-              value: inputNum(m.req5h),
-              title: t("short5h") + " " + t("reqHint"),
-              onChange: (e) => updateEntry(m.id, { req5h: parseNum(e.target.value) }),
-            }),
-            React.createElement("input", {
-              style: { ...styles.input, width: 60 },
-              type: "number", min: 0, step: 1,
-              value: inputNum(m.reqWeek),
-              title: t("shortW") + " " + t("reqHint"),
-              onChange: (e) => updateEntry(m.id, { reqWeek: parseNum(e.target.value) }),
-            }),
-            React.createElement("input", {
-              style: { ...styles.input, width: 60 },
-              type: "number", min: 0, step: 1,
-              value: inputNum(m.reqMonth),
-              title: t("shortM") + " " + t("reqHint"),
-              onChange: (e) => updateEntry(m.id, { reqMonth: parseNum(e.target.value) }),
-            }),
-            React.createElement("button", { style: styles.button, onClick: () => removeEntry(m.id) }, t("deleteM"))
-          )
-        ),
-        React.createElement("div", { style: styles.btnRow },
-          React.createElement("button", { style: styles.button, onClick: addEntry }, t("addModel")),
-          React.createElement("button", { style: styles.button, onClick: resetDefaults }, t("resetDefaults"))
-        )
-      );
-
-      const slideCount = () => 1 + (limits.length > 0 ? limits.length : 1) + 1;
 
       // ---- 状态渲染 ----
       if (state.kind === "loading") {
@@ -492,20 +400,21 @@ window.__ModuleLoader__.load({
       }
 
       const usage = value.usage || {};
-      const monthlyPct = usage.monthly && typeof usage.monthly.percent === "number" ? usage.monthly.percent : null;
-
-      const slides = [overviewSlide(usage)];
-      if (limits.length > 0) {
-        limits.forEach((m, i) => slides.push(modelSlide(m, monthlyPct, i)));
-      } else {
-        slides.push(emptyModelSlide());
-      }
-      slides.push(manageSlide());
+      const slides = [
+        React.createElement("div", { key: "overview", style: styles.slide },
+          React.createElement("p", { style: styles.hint }, t("swipeHint")),
+          React.createElement(WindowCard, { name: t("rolling"), quotaUsd: QUOTAS.rolling, windowData: usage.rolling, t }),
+          React.createElement(WindowCard, { name: t("weekly"), quotaUsd: QUOTAS.weekly, windowData: usage.weekly, t }),
+          React.createElement(WindowCard, { name: t("monthly"), quotaUsd: QUOTAS.monthly, windowData: usage.monthly, t })
+        ),
+        React.createElement("div", { key: "models", style: styles.slide },
+          React.createElement("p", { style: styles.hint }, t("swipeHint")),
+          React.createElement(ModelTable, { t })
+        ),
+      ];
 
       return React.createElement("div", { style: styles.carouselWrap },
-        React.createElement("div", { ref: trackRef, className: "ocu-track", style: styles.track, onScroll },
-          slides
-        ),
+        React.createElement("div", { ref: trackRef, style: styles.track, onScroll }, slides),
         React.createElement("div", { style: styles.dots },
           React.createElement("button", { style: styles.arrow, type: "button", "aria-label": "<", onClick: () => goTo(Math.max(0, active - 1)) }, "‹"),
           slides.map((s, i) =>
@@ -518,8 +427,7 @@ window.__ModuleLoader__.load({
             })
           ),
           React.createElement("button", { style: styles.arrow, type: "button", "aria-label": ">", onClick: () => goTo(Math.min(slides.length - 1, active + 1)) }, "›")
-        ),
-        React.createElement("p", { style: styles.hint }, t("dataNote"))
+        )
       );
     }
 
@@ -586,7 +494,6 @@ window.__ModuleLoader__.load({
 
     // ---------- 插件装配 ----------
     function apply(ctx) {
-      ensureCarouselCss();
       const mountReady = ctx.remote.$mount(TYPERT_REMOTE);
       ctx.effect(() => ctx.locale.register(NS, { zh, en }), "opencode-go-usage: dictionaries");
       const t = ctx.locale.bind(NS);
