@@ -309,7 +309,7 @@ window.__ModuleLoader__.load({
           React.createElement("span", { style: styles.colCap }, usd(m.monthlyUsd)),
         )
       );
-      const cardStyle = { ...styles.card, flex: "1 1 0", minHeight: 0, maxHeight: 480 };
+      const cardStyle = { ...styles.card, flex: "1 1 auto", minHeight: 0, maxHeight: 480 };
       return React.createElement("div", { style: cardStyle },
         React.createElement("h3", { style: styles.cardName }, t("modelCardTitle")),
         head,
@@ -383,7 +383,7 @@ window.__ModuleLoader__.load({
       const usage = value.usage || {};
       const slides = [
         React.createElement("div", { key: "overview", style: styles.slide },
-          React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10, flex: "1 1 0", minHeight: 0 } },
+          React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10, flex: "1 1 auto", minHeight: 0 } },
             React.createElement(WindowCard, { grow: true, name: t("rolling"), quotaUsd: QUOTAS.rolling, windowData: usage.rolling, t }),
             React.createElement(WindowCard, { grow: true, name: t("weekly"), quotaUsd: QUOTAS.weekly, windowData: usage.weekly, t }),
             React.createElement(WindowCard, { grow: true, name: t("monthly"), quotaUsd: QUOTAS.monthly, windowData: usage.monthly, t })
