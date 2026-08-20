@@ -452,7 +452,7 @@ window.__ModuleLoader__.load({
           React.createElement("span", { style: styles.tblCap }, usd(m.monthlyUsd))
         )
       );
-      return React.createElement("div", { style: { ...styles.modelCard, height: "100%" } },
+      return React.createElement("div", { style: { ...styles.card, ...styles.modelCard, height: "100%" } },
         React.createElement("div", { style: styles.modelHead },
           React.createElement("span", { style: styles.modelTitle }, t("modelCardTitle")),
           React.createElement("span", { style: styles.modelCount }, t("modelCount").replace("{n}", String(MODEL_LIST.length)))
