@@ -325,13 +325,17 @@ window.__ModuleLoader__.load({
         const style = document.createElement("style");
         style.id = "ocu-style";
         style.textContent = `
+          /* 结构：两主题统一（宽度 / 圆角 / 内边距 / 字体） */
           .ocu-modal {
             width: min(560px, calc(100vw - 32px)); max-width: 100%;
-            padding: 0; gap: 0; border-radius: 14px;
+            padding: 0; gap: 0; border-radius: 14px; overflow: hidden;
+            border: 1px solid var(--dsw-alias-border-l2);
+            font-family: Inter, "SF Pro Display", -apple-system, system-ui, "Segoe UI", sans-serif;
+          }
+          /* 深色：像素级对齐预览色板（用户认可的效果） */
+          html.ocu-dark .ocu-modal {
             background: #141517;
-            border: 1px solid rgba(255,255,255,0.09);
             box-shadow: rgba(0,0,0,0.4) 0 24px 64px -12px, rgba(0,0,0,0.2) 0 0 0 1px;
-            overflow: hidden;
             --dsw-alias-bg-layer-1: #141517;
             --dsw-alias-bg-layer-2: #141517;
             --dsw-alias-bg-layer-3: #202226;
@@ -341,13 +345,38 @@ window.__ModuleLoader__.load({
             --dsw-alias-label-secondary: #a9adb8;
             --dsw-alias-label-tertiary: #6b7080;
             --dsw-alias-state-business-primary: #7170ff;
-            font-family: Inter, "SF Pro Display", -apple-system, system-ui, "Segoe UI", sans-serif;
           }
+          /* 浅色：不覆盖任何颜色变量，原生浅色主题自然流出 */
           .ocu-modal ::-webkit-scrollbar { width: 6px; height: 6px; }
-          .ocu-modal ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.09); border-radius: 3px; }
+          .ocu-modal ::-webkit-scrollbar-thumb { background: var(--dsw-alias-border-l2); border-radius: 3px; }
           .ocu-modal .ocu-track::-webkit-scrollbar { display: none; }
         `;
         document.head.appendChild(style);
+      } catch { /* 忽略 */ }
+    }
+
+    // 主题探测：解析 alias 变量亮度判断深浅，切换 html.ocu-dark
+    function refreshThemeClass() {
+      try {
+        const doc = document.documentElement;
+        const v = getComputedStyle(doc).getPropertyValue("--dsw-alias-bg-layer-0").trim();
+        const m = v.match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/);
+        let lum;
+        if (m) lum = (0.299 * Number(m[1]) + 0.587 * Number(m[2]) + 0.114 * Number(m[3])) / 255;
+        else lum = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? 0 : 1;
+        doc.classList.toggle("ocu-dark", lum < 0.5);
+      } catch { /* 忽略 */ }
+    }
+
+    // 跟随主题切换（监听 html 属性变化，浅深色即时生效）
+    function watchTheme() {
+      refreshThemeClass();
+      try {
+        const doc = document.documentElement;
+        if (doc.dataset.__ocuWatched) return;
+        doc.dataset.__ocuWatched = "1";
+        new MutationObserver(() => refreshThemeClass())
+          .observe(doc, { attributes: true, attributeFilter: ["class", "data-theme", "style"] });
       } catch { /* 忽略 */ }
     }
 
@@ -618,6 +647,7 @@ window.__ModuleLoader__.load({
     // ---------- 插件装配 ----------
     function apply(ctx) {
       ensureOcuCss();
+      watchTheme();
       const mountReady = ctx.remote.$mount(TYPERT_REMOTE);
       ctx.effect(() => ctx.locale.register(NS, { zh, en }), "opencode-go-usage: dictionaries");
       const t = ctx.locale.bind(NS);

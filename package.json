@@ -1,6 +1,6 @@
 {
   "name": "dsh-opencode-go-usage",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "DeepSeek Harness plugin: view your OpenCode Go plan usage from the Settings sidebar or a gauge button next to the model selector",
   "license": "MIT",
   "keywords": [
