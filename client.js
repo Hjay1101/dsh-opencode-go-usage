@@ -266,7 +266,7 @@ window.__ModuleLoader__.load({
       const m = win(usage.monthly, QUOTAS.monthly);
       const r = win(usage.rolling, QUOTAS.rolling);
       const w = win(usage.weekly, QUOTAS.weekly);
-      return React.createElement("div", { style: { ...styles.card, flex: "1 1 0", minHeight: 0, height: "100%" } },
+      return React.createElement("div", { style: { ...styles.card, flex: "1 1 0", minHeight: 0, height: "100%", justifyContent: "center" } },
         React.createElement("div", { style: styles.ovHead },
           React.createElement("span", { style: styles.ovTitle }, t("monthlyUsage")),
           React.createElement("span", { style: styles.ovPill }, t("planPill"))
