@@ -57,6 +57,11 @@ window.__ModuleLoader__.load({
       modelCardTitle: "支持的模型与月额度",
       capCol: "月额度",
       model: "模型",
+      planPill: "GO · $10/月",
+      monthlyUsage: "本月用量",
+      modelCount: "{n} 个模型",
+      row5h: "5h 滚动",
+      rowWeek: "本周",
     };
     const en = {
       nav: "OpenCode Go",
@@ -86,6 +91,11 @@ window.__ModuleLoader__.load({
       modelCardTitle: "Supported models & monthly caps",
       capCol: "Cap",
       model: "Model",
+      planPill: "GO · $10/mo",
+      monthlyUsage: "Monthly usage",
+      modelCount: "{n} models",
+      row5h: "5h rolling",
+      rowWeek: "Week",
     };
 
     // ---------- Remote 描述符 ----------
@@ -151,38 +161,59 @@ window.__ModuleLoader__.load({
       { id: "hy3", name: "Hy3", monthlyUsd: 60 },
     ];
 
-    // ---------- 样式（跟随 harness 主题变量） ----------
+    // ---------- 样式（Linear 风，全部映射 DSH 主题变量） ----------
+    const MONO = "ui-monospace, \"SF Mono\", Menlo, monospace";
     const styles = {
       wrap: { maxWidth: 720, display: "flex", flexDirection: "column", gap: 14, padding: "8px 0" },
       title: { fontSize: 16, fontWeight: 600, margin: 0 },
       hint: { color: "var(--dsw-alias-label-tertiary)", fontSize: 13, lineHeight: 1.6, margin: 0 },
       error: { color: "var(--dsw-alias-state-error-primary)", fontSize: 13, lineHeight: 1.6, margin: 0 },
-      card: { border: "1px solid var(--dsw-alias-border-l2)", background: "var(--dsw-alias-bg-layer-3)", borderRadius: 10, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8 },
+      // 卡片基础：细边框 / 弱阴影 / 精密间距
+      card: { border: "1px solid var(--dsw-alias-border-l2)", background: "var(--dsw-alias-bg-layer-3)", borderRadius: 12, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 12, boxShadow: "rgba(0,0,0,0.2) 0px 1px 2px, inset 0 1px 0 rgba(255,255,255,0.03)" },
       cardHead: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 },
-      cardName: { fontSize: 14, fontWeight: 600, margin: 0 },
+      cardName: { fontSize: 14, fontWeight: 590, margin: 0, letterSpacing: "-0.1px" },
       cardMeta: { color: "var(--dsw-alias-label-tertiary)", fontSize: 12, margin: 0 },
-      barTrack: { height: 8, borderRadius: 4, background: "var(--dsw-alias-bg-layer-1)", overflow: "hidden" },
-      barFill: { height: "100%", borderRadius: 4, background: "var(--dsw-alias-state-business-primary)", transition: "width .2s ease" },
+      // 进度条
+      barTrack: { position: "relative", height: 6, borderRadius: 999, background: "var(--dsw-alias-bg-layer-1)", overflow: "hidden" },
+      barFill: { height: "100%", borderRadius: 999, background: "linear-gradient(90deg, var(--dsw-alias-state-business-primary), #9b9bff)", boxShadow: "0 0 10px rgba(113,112,255,0.45)", transition: "width .45s cubic-bezier(.22,1,.36,1)" },
+      barThin: { position: "relative", height: 4, borderRadius: 999, background: "var(--dsw-alias-bg-layer-1)", overflow: "hidden" },
       row: { display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--dsw-alias-label-secondary)", gap: 8 },
       rowLabel: { color: "var(--dsw-alias-label-tertiary)", fontSize: 12 },
-      button: { alignSelf: "flex-start", border: "1px solid var(--dsw-alias-border-l2)", color: "var(--dsw-alias-label-primary)", font: "inherit", cursor: "pointer", background: "transparent", borderRadius: 6, padding: "5px 12px" },
-      // 工具行小按钮：无边框幽灵按钮，跟随主题色。
+      button: { alignSelf: "flex-start", border: "1px solid var(--dsw-alias-border-l2)", color: "var(--dsw-alias-label-primary)", font: "inherit", cursor: "pointer", background: "transparent", borderRadius: 7, padding: "5px 12px" },
+      // 工具行小按钮
       toolButton: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, padding: 0, border: "none", background: "transparent", color: "var(--dsw-alias-label-secondary)", cursor: "pointer", borderRadius: 4 },
       // 轮播
-      carouselWrap: { display: "flex", flexDirection: "column", gap: 10, padding: "2px 0 4px" },
-      track: { display: "flex", gap: 12, overflowX: "auto", scrollSnapType: "x mandatory", scrollbarWidth: "none", paddingBottom: 2, height: 480 },
-      slide: { minWidth: "calc(100% - 44px)", scrollSnapAlign: "start", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: 10, height: "100%" },
-      dots: { display: "flex", alignItems: "center", justifyContent: "center", gap: 10 },
-      dot: { width: 7, height: 7, borderRadius: "50%", border: "1px solid var(--dsw-alias-border-l2)", background: "transparent", cursor: "pointer", padding: 0, flex: "none" },
-      dotActive: { background: "var(--dsw-alias-state-business-primary)", borderColor: "var(--dsw-alias-state-business-primary)" },
-      arrow: { border: "none", background: "transparent", color: "var(--dsw-alias-label-secondary)", cursor: "pointer", fontSize: 16, padding: "0 6px", lineHeight: 1 },
-      // 模型限额表
-      tableHead: { display: "flex", gap: 10, padding: "4px 12px", fontSize: 12, color: "var(--dsw-alias-label-tertiary)", borderBottom: "1px solid var(--dsw-alias-border-l1)" },
-      tableRow: { display: "flex", gap: 10, padding: "7px 12px", fontSize: 12, color: "var(--dsw-alias-label-secondary)", borderBottom: "1px solid var(--dsw-alias-border-l1)", alignItems: "center" },
-      tableBody: { overflowY: "auto" },
-      colModel: { flex: 1.6, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "left" },
-      colCap: { flex: 0.7, textAlign: "right" },
-      colReq: { flex: 1, textAlign: "right" },
+      carouselWrap: { display: "flex", flexDirection: "column", gap: 12, padding: "2px 0 4px" },
+      track: { display: "flex", gap: 12, overflowX: "auto", scrollSnapType: "x mandatory", scrollbarWidth: "none", paddingBottom: 2, height: 432, alignItems: "stretch" },
+      slide: { minWidth: "calc(100% - 44px)", height: "100%", scrollSnapAlign: "start", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: 10 },
+      dots: { display: "flex", alignItems: "center", justifyContent: "center", gap: 12 },
+      dot: { width: 6, height: 6, borderRadius: "50%", padding: 0, cursor: "pointer", border: "1px solid var(--dsw-alias-border-l2)", background: "transparent", transition: "all .2s ease", flex: "none" },
+      dotActive: { width: 20, borderRadius: 999, background: "var(--dsw-alias-state-business-primary)", borderColor: "var(--dsw-alias-state-business-primary)" },
+      arrow: { border: "1px solid var(--dsw-alias-border-l1)", background: "rgba(255,255,255,0.02)", color: "var(--dsw-alias-label-secondary)", width: 24, height: 24, borderRadius: 7, cursor: "pointer", fontSize: 14, lineHeight: 1, display: "grid", placeItems: "center", padding: 0, transition: "background .15s ease, color .15s ease, border-color .15s ease" },
+      // 总览卡（卡0）
+      ovHead: { display: "flex", alignItems: "center", justifyContent: "space-between" },
+      ovTitle: { fontSize: 13, fontWeight: 590, color: "var(--dsw-alias-label-secondary)", letterSpacing: "-0.1px" },
+      ovPill: { fontSize: 11, fontWeight: 510, letterSpacing: "0.3px", color: "var(--dsw-alias-state-business-primary)", background: "rgba(113,112,255,0.14)", border: "1px solid rgba(113,112,255,0.25)", padding: "2px 8px", borderRadius: 999, whiteSpace: "nowrap" },
+      heroMain: { display: "flex", alignItems: "baseline", gap: 10 },
+      heroNum: { fontFamily: MONO, fontSize: 40, fontWeight: 510, lineHeight: 1, letterSpacing: "-1.2px", color: "var(--dsw-alias-label-primary)", fontVariantNumeric: "tabular-nums" },
+      heroUnit: { fontSize: 13, color: "var(--dsw-alias-label-tertiary)" },
+      heroReset: { display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--dsw-alias-label-tertiary)" },
+      heroResetVal: { color: "var(--dsw-alias-label-secondary)", fontFamily: MONO, fontVariantNumeric: "tabular-nums" },
+      divLine: { height: 1, background: "var(--dsw-alias-border-l1)" },
+      winRow: { display: "flex", flexDirection: "column", gap: 6 },
+      winMeta: { display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--dsw-alias-label-tertiary)" },
+      winMetaVal: { color: "var(--dsw-alias-label-secondary)", fontFamily: MONO, fontVariantNumeric: "tabular-nums" },
+      // 模型卡（卡1）
+      modelCard: { flex: "1 1 0", minHeight: 0, gap: 0, padding: 0, overflow: "hidden" },
+      modelHead: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px 10px" },
+      modelTitle: { fontSize: 13, fontWeight: 590, color: "var(--dsw-alias-label-secondary)", letterSpacing: "-0.1px" },
+      modelCount: { fontSize: 11, color: "var(--dsw-alias-label-tertiary)", fontFamily: MONO },
+      tableBody: { flex: "1 1 0", minHeight: 0, overflowY: "auto" },
+      tblHead: { display: "grid", gridTemplateColumns: "1fr 0.6fr", gap: 12, padding: "6px 18px 8px", position: "sticky", top: 0, zIndex: 1, background: "var(--dsw-alias-bg-layer-3)", borderBottom: "1px solid var(--dsw-alias-border-l1)", fontSize: "10.5px", fontWeight: 590, letterSpacing: "0.6px", textTransform: "uppercase", color: "var(--dsw-alias-label-tertiary)" },
+      tblHeadRight: { textAlign: "right" },
+      tblRow: { display: "grid", gridTemplateColumns: "1fr 0.6fr", gap: 12, padding: "8px 18px", alignItems: "center", borderBottom: "1px solid var(--dsw-alias-border-l1)", transition: "background .12s ease" },
+      tblName: { fontSize: "12.5px", fontWeight: 510, color: "var(--dsw-alias-label-primary)", letterSpacing: "-0.1px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+      tblCap: { textAlign: "right", fontSize: "12.5px", fontWeight: 590, fontFamily: MONO, fontVariantNumeric: "tabular-nums", color: "var(--dsw-alias-state-business-primary)" },
     };
 
     function fmtReset(resetsAt, t) {
@@ -195,8 +226,7 @@ window.__ModuleLoader__.load({
       return Number.isFinite(n) ? "$" + n.toFixed(2) : "—";
     }
 
-    // ---------- 单个用量窗口卡片 ----------
-    // quotaUsd: 该窗口的政策配额（$），用于换算已用金额。
+    // ---------- 单个用量窗口卡片（Linear 风，设置页三张卡共用） ----------
     function WindowCard(props) {
       const { name, quotaUsd, windowData, t } = props;
       const percent = windowData && typeof windowData.percent === "number" ? windowData.percent : null;
@@ -208,18 +238,70 @@ window.__ModuleLoader__.load({
       return React.createElement("div", { style: { ...cardStyle, height: "100%" } },
         React.createElement("div", { style: styles.cardHead },
           React.createElement("h3", { style: styles.cardName }, name),
-          React.createElement("p", { style: styles.cardMeta }, t("limit") + ": " + usd(quotaUsd))
+          React.createElement("span", { style: styles.ovPill }, usd(quotaUsd))
+        ),
+        React.createElement("div", { style: styles.heroMain },
+          React.createElement("span", { style: { ...styles.heroNum, fontSize: 28, letterSpacing: "-0.8px" } },
+            percent === null ? t("unknown") : pct + "%"),
+          React.createElement("span", { style: styles.heroUnit }, t("used") + " " + usd(used) + " / " + usd(quotaUsd))
         ),
         React.createElement("div", { style: styles.barTrack },
           React.createElement("div", { style: { ...styles.barFill, width: pct + "%" } })
         ),
-        React.createElement("div", { style: styles.row },
-          React.createElement("span", null, percent === null ? t("unknown") : pct + "%"),
-          React.createElement("span", null, t("reset") + ": " + fmtReset(windowData && windowData.resetsAt, t))
+        React.createElement("div", { style: styles.heroReset },
+          React.createElement("span", null, t("reset")),
+          React.createElement("span", { style: styles.heroResetVal }, fmtReset(windowData && windowData.resetsAt, t))
+        )
+      );
+    }
+
+    // ---------- 总览卡（弹窗卡0：英雄月用量 + 5h/周小行） ----------
+    function OverviewCard(props) {
+      const { usage, t } = props;
+      const win = (w, quotaUsd) => {
+        const p = w && typeof w.percent === "number" ? w.percent : null;
+        const pc = p === null ? 0 : Math.max(0, Math.min(100, p));
+        return { percent: p, pct: pc, used: p === null ? null : (pc / 100) * quotaUsd };
+      };
+      const m = win(usage.monthly, QUOTAS.monthly);
+      const r = win(usage.rolling, QUOTAS.rolling);
+      const w = win(usage.weekly, QUOTAS.weekly);
+      return React.createElement("div", { style: { ...styles.card, flex: "1 1 0", minHeight: 0, height: "100%" } },
+        React.createElement("div", { style: styles.ovHead },
+          React.createElement("span", { style: styles.ovTitle }, t("monthlyUsage")),
+          React.createElement("span", { style: styles.ovPill }, t("planPill"))
         ),
-        React.createElement("div", { style: styles.row },
-          React.createElement("span", null, t("used") + " " + usd(used) + " / " + usd(quotaUsd)),
-          React.createElement("span", { style: styles.rowLabel }, t("limit"))
+        React.createElement("div", { style: styles.heroMain },
+          React.createElement("span", { style: styles.heroNum }, m.percent === null ? "—" : m.pct + "%"),
+          React.createElement("span", { style: styles.heroUnit }, t("used") + " " + usd(m.used) + " / " + usd(QUOTAS.monthly))
+        ),
+        React.createElement("div", { style: styles.barTrack },
+          React.createElement("div", { style: { ...styles.barFill, width: m.pct + "%" } })
+        ),
+        React.createElement("div", { style: styles.heroReset },
+          React.createElement("span", null, t("reset")),
+          React.createElement("span", { style: styles.heroResetVal }, fmtReset(usage.monthly && usage.monthly.resetsAt, t))
+        ),
+        React.createElement("div", { style: styles.divLine }),
+        React.createElement("div", { style: styles.winRow },
+          React.createElement("div", { style: styles.winMeta },
+            React.createElement("span", null, t("row5h")),
+            React.createElement("span", { style: styles.winMetaVal },
+              r.percent === null ? t("unknown") : r.pct + "% · " + usd(r.used) + " / " + usd(QUOTAS.rolling))
+          ),
+          React.createElement("div", { style: styles.barThin },
+            React.createElement("div", { style: { ...styles.barFill, width: r.pct + "%" } })
+          )
+        ),
+        React.createElement("div", { style: styles.winRow },
+          React.createElement("div", { style: styles.winMeta },
+            React.createElement("span", null, t("rowWeek")),
+            React.createElement("span", { style: styles.winMetaVal },
+              w.percent === null ? t("unknown") : w.pct + "% · " + usd(w.used) + " / " + usd(QUOTAS.weekly))
+          ),
+          React.createElement("div", { style: styles.barThin },
+            React.createElement("div", { style: { ...styles.barFill, width: w.pct + "%" } })
+          )
         )
       );
     }
@@ -297,24 +379,25 @@ window.__ModuleLoader__.load({
       );
     }
 
-    // ---------- 模型与限额表 ----------
-    function ModelTable(props) {
+    // ---------- 模型与月额度表格（弹窗卡1，新设计） ----------
+    function ModelCard(props) {
       const { t } = props;
-      const head = React.createElement("div", { style: styles.tableHead },
-        React.createElement("span", { style: styles.colModel }, t("model")),
-        React.createElement("span", { style: styles.colCap }, t("capCol")),
+      const head = React.createElement("div", { style: styles.tblHead },
+        React.createElement("span", null, t("model")),
+        React.createElement("span", { style: styles.tblHeadRight }, t("capCol"))
       );
       const rows = MODEL_LIST.map((m) =>
-        React.createElement("div", { key: m.id, style: styles.tableRow },
-          React.createElement("span", { style: styles.colModel, title: m.id }, m.name),
-          React.createElement("span", { style: styles.colCap }, usd(m.monthlyUsd)),
+        React.createElement("div", { key: m.id, style: styles.tblRow },
+          React.createElement("span", { style: styles.tblName, title: m.id }, m.name),
+          React.createElement("span", { style: styles.tblCap }, usd(m.monthlyUsd))
         )
       );
-      const cardStyle = { ...styles.card, flex: "1 1 0", minHeight: 0 };
-      return React.createElement("div", { style: { ...cardStyle, height: "100%" } },
-        React.createElement("h3", { style: styles.cardName }, t("modelCardTitle")),
-        head,
-        React.createElement("div", { style: { ...styles.tableBody, flex: "1 1 0", minHeight: 0 } }, rows)
+      return React.createElement("div", { style: { ...styles.modelCard, height: "100%" } },
+        React.createElement("div", { style: styles.modelHead },
+          React.createElement("span", { style: styles.modelTitle }, t("modelCardTitle")),
+          React.createElement("span", { style: styles.modelCount }, t("modelCount").replace("{n}", String(MODEL_LIST.length)))
+        ),
+        React.createElement("div", { style: styles.tableBody }, head, rows)
       );
     }
 
@@ -384,17 +467,12 @@ window.__ModuleLoader__.load({
       const usage = value.usage || {};
       const slides = [
         React.createElement("div", { key: "overview", style: styles.slide },
-          React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10, flex: "1 1 0", minHeight: 0 } },
-            React.createElement(WindowCard, { grow: true, name: t("rolling"), quotaUsd: QUOTAS.rolling, windowData: usage.rolling, t }),
-            React.createElement(WindowCard, { grow: true, name: t("weekly"), quotaUsd: QUOTAS.weekly, windowData: usage.weekly, t }),
-            React.createElement(WindowCard, { grow: true, name: t("monthly"), quotaUsd: QUOTAS.monthly, windowData: usage.monthly, t })
-          )
+          React.createElement(OverviewCard, { usage, t })
         ),
         React.createElement("div", { key: "models", style: styles.slide },
-          React.createElement(ModelTable, { t })
+          React.createElement(ModelCard, { t })
         ),
       ];
-
       return React.createElement("div", { style: styles.carouselWrap },
         React.createElement("div", { ref: trackRef, style: styles.track, onScroll }, slides),
         React.createElement("div", { style: styles.dots },

@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OpenCode Go 用量弹窗 · 新版预览</title>
+<style>
+  /* ============ DSH 主题变量（预览页面内模拟；插件内由 shell 提供） ============ */
+  :root {
+    --dsw-alias-bg-layer-0: #0b0c0e;
+    --dsw-alias-bg-layer-1: #141517;
+    --dsw-alias-bg-layer-2: #1b1d20;
+    --dsw-alias-bg-layer-3: #202226;
+    --dsw-alias-border-l1: rgba(255, 255, 255, 0.05);
+    --dsw-alias-border-l2: rgba(255, 255, 255, 0.09);
+    --dsw-alias-label-primary: #f4f5f6;
+    --dsw-alias-label-secondary: #a9adb8;
+    --dsw-alias-label-tertiary: #6b7080;
+    --dsw-alias-state-business-primary: #7170ff;
+    --dsw-alias-state-business-primary-soft: rgba(113, 112, 255, 0.14);
+    --dsw-alias-state-success-primary: #27a644;
+    --dsw-alias-state-warning-primary: #f59e0b;
+    --dsw-alias-state-danger-primary: #ef4444;
+    --dsw-alias-state-error-primary: #ef4444;
+    font-family: Inter, "SF Pro Display", -apple-system, system-ui, "Segoe UI", sans-serif;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 600px at 50% -10%, #16181d 0%, var(--dsw-alias-bg-layer-0) 60%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
+    padding: 40px 20px;
+  }
+  .page-note {
+    color: var(--dsw-alias-label-tertiary);
+    font-size: 12px;
+    letter-spacing: 0.2px;
+    text-align: center;
+    max-width: 560px;
+    line-height: 1.7;
+  }
+  .page-note b { color: var(--dsw-alias-label-secondary); font-weight: 510; }
+
+  /* ============ 弹窗模拟（Modal 外壳） ============ */
+  .modal-shell {
+    width: min(560px, 100%);
+    background: var(--dsw-alias-bg-layer-1);
+    border: 1px solid var(--dsw-alias-border-l2);
+    border-radius: 14px;
+    box-shadow: rgba(0,0,0,0.4) 0px 24px 64px -12px, rgba(0,0,0,0.2) 0px 0px 0px 1px;
+    overflow: hidden;
+  }
+  .modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--dsw-alias-border-l1);
+  }
+  .modal-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 590; color: var(--dsw-alias-label-primary); letter-spacing: -0.1px; }
+  .modal-title svg { color: var(--dsw-alias-state-business-primary); }
+  .modal-close {
+    width: 24px; height: 24px; border-radius: 6px; border: 1px solid var(--dsw-alias-border-l1);
+    background: rgba(255,255,255,0.02); color: var(--dsw-alias-label-tertiary);
+    cursor: pointer; display: grid; place-items: center; font-size: 13px;
+    transition: background .15s ease, color .15s ease;
+  }
+  .modal-close:hover { background: rgba(255,255,255,0.05); color: var(--dsw-alias-label-secondary); }
+
+  .modal-body { padding: 16px; }
+
+  /* ============ 轮播 ============ */
+  .carousel-wrap { display: flex; flex-direction: column; gap: 12px; }
+  .track {
+    display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory;
+    scrollbar-width: none; height: 432px; align-items: stretch;
+  }
+  .track::-webkit-scrollbar { display: none; }
+  .slide {
+    min-width: calc(100% - 44px); height: 100%; scroll-snap-align: start;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+
+  /* ============ 卡片基础（Linear 风：细边框 / 弱阴影 / 精密间距） ============ */
+  .card {
+    background: var(--dsw-alias-bg-layer-3);
+    border: 1px solid var(--dsw-alias-border-l2);
+    border-radius: 12px;
+    box-shadow: rgba(0,0,0,0.2) 0px 1px 2px, inset 0 1px 0 rgba(255,255,255,0.03);
+    padding: 16px 18px;
+    display: flex; flex-direction: column;
+    transition: border-color .18s ease, background .18s ease;
+  }
+  .card:hover { border-color: var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-3); }
+
+  /* ---- 卡0：用量总览 ---- */
+  .overview-card { flex: 1 1 0; min-height: 0; overflow: hidden; justify-content: center; gap: 12px; }
+  .ov-head { display: flex; align-items: center; justify-content: space-between; }
+  .ov-title { font-size: 13px; font-weight: 590; color: var(--dsw-alias-label-secondary); letter-spacing: -0.1px; }
+  .ov-pill {
+    font-size: 11px; font-weight: 510; letter-spacing: 0.3px;
+    color: var(--dsw-alias-state-business-primary);
+    background: var(--dsw-alias-state-business-primary-soft);
+    border: 1px solid rgba(113,112,255,0.25);
+    padding: 2px 8px; border-radius: 999px;
+  }
+  .window-main { display: flex; align-items: baseline; gap: 10px; }
+  .window-main .num {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 40px; font-weight: 510; line-height: 1; letter-spacing: -1.2px;
+    color: var(--dsw-alias-label-primary); font-variant-numeric: tabular-nums;
+  }
+  .window-main .unit { font-size: 13px; color: var(--dsw-alias-label-tertiary); }
+  .bar { position: relative; height: 6px; border-radius: 999px; background: var(--dsw-alias-bg-layer-1); overflow: hidden; }
+  .bar::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06)); pointer-events: none; }
+  .bar-fill {
+    height: 100%; border-radius: 999px;
+    background: linear-gradient(90deg, var(--dsw-alias-state-business-primary), #9b9bff);
+    box-shadow: 0 0 10px rgba(113,112,255,0.45);
+    transition: width .45s cubic-bezier(.22,1,.36,1);
+  }
+  .win-row { display: flex; flex-direction: column; gap: 6px; }
+  .win-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--dsw-alias-label-tertiary); }
+  .win-meta .val { color: var(--dsw-alias-label-secondary); font-family: ui-monospace, "SF Mono", Menlo, monospace; font-variant-numeric: tabular-nums; }
+
+  /* ---- 卡1：模型与月额度表格 ---- */
+  .model-card { flex: 1 1 0; min-height: 0; gap: 0; padding: 0; overflow: hidden; }
+  .model-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px 10px; }
+  .model-title { font-size: 13px; font-weight: 590; color: var(--dsw-alias-label-secondary); letter-spacing: -0.1px; }
+  .model-count { font-size: 11px; color: var(--dsw-alias-label-tertiary); font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  .model-tbl { flex: 1 1 0; min-height: 0; overflow-y: auto; }
+  .model-tbl::-webkit-scrollbar { width: 6px; }
+  .model-tbl::-webkit-scrollbar-thumb { background: var(--dsw-alias-border-l2); border-radius: 3px; }
+  .tbl-head {
+    display: grid; grid-template-columns: 1fr 0.6fr; gap: 12px;
+    padding: 6px 18px 8px; position: sticky; top: 0; z-index: 1;
+    background: var(--dsw-alias-bg-layer-3);
+    border-bottom: 1px solid var(--dsw-alias-border-l1);
+    font-size: 10.5px; font-weight: 590; letter-spacing: 0.6px; text-transform: uppercase;
+    color: var(--dsw-alias-label-tertiary);
+  }
+  .tbl-head span:last-child { text-align: right; }
+  .tbl-row {
+    display: grid; grid-template-columns: 1fr 0.6fr; gap: 12px;
+    padding: 8px 18px; align-items: center;
+    border-bottom: 1px solid var(--dsw-alias-border-l1);
+    transition: background .12s ease;
+  }
+  .tbl-row:last-child { border-bottom: none; }
+  .tbl-row:hover { background: rgba(255,255,255,0.025); }
+  .tbl-row .name { font-size: 12.5px; font-weight: 510; color: var(--dsw-alias-label-primary); letter-spacing: -0.1px; }
+  .tbl-row .cap {
+    text-align: right; font-size: 12.5px; font-weight: 590;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; font-variant-numeric: tabular-nums;
+    color: var(--dsw-alias-state-business-primary);
+  }
+
+  /* ---- 导航点 / 箭头 ---- */
+  .dots { display: flex; align-items: center; justify-content: center; gap: 12px; }
+  .arrow {
+    border: 1px solid var(--dsw-alias-border-l1); background: rgba(255,255,255,0.02);
+    color: var(--dsw-alias-label-secondary); width: 24px; height: 24px; border-radius: 7px;
+    cursor: pointer; font-size: 14px; line-height: 1; display: grid; place-items: center;
+    transition: background .15s ease, color .15s ease, border-color .15s ease;
+  }
+  .arrow:hover { background: rgba(255,255,255,0.06); color: var(--dsw-alias-label-primary); border-color: var(--dsw-alias-border-l2); }
+  .dot {
+    width: 6px; height: 6px; border-radius: 50%; padding: 0; cursor: pointer;
+    border: 1px solid var(--dsw-alias-border-l2); background: transparent;
+    transition: all .2s ease;
+  }
+  .dot.active { width: 20px; border-radius: 999px; background: var(--dsw-alias-state-business-primary); border-color: var(--dsw-alias-state-business-primary); }
+</style>
+</head>
+<body>
+  <div class="modal-shell">
+    <!-- 弹窗头 -->
+    <div class="modal-head">
+      <div class="modal-title">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M9.75 1 L3.25 9.5 H7 L6 15 L12.75 6.5 H8.9 Z"/></svg>
+        OpenCode Go 用量
+      </div>
+      <button class="modal-close" title="关闭">✕</button>
+    </div>
+
+    <!-- 弹窗体：轮播 -->
+    <div class="modal-body">
+      <div class="carousel-wrap">
+        <div class="track" id="track">
+
+          <!-- 卡0：用量总览 -->
+          <section class="slide">
+            <div class="card overview-card">
+              <div class="ov-head">
+                <span class="ov-title">本月用量</span>
+                <span class="ov-pill">GO · $10/月</span>
+              </div>
+              <div class="window-main"><span class="num">47%</span><span class="unit">已用 $28.20 / $60</span></div>
+              <div class="bar"><div class="bar-fill" style="width:47%"></div></div>
+              <div class="win-row">
+                <div class="win-meta"><span>重置</span><span class="val">2026-09-14 23:12</span></div>
+              </div>
+              <div style="height:1px;background:var(--dsw-alias-border-l1)"></div>
+              <div class="win-row">
+                <div class="win-meta"><span class="val" style="color:var(--dsw-alias-label-secondary)">5h 滚动</span><span class="val">19% · $2.28 / $12</span></div>
+                <div class="bar" style="height:4px"><div class="bar-fill" style="width:19%"></div></div>
+              </div>
+              <div class="win-row">
+                <div class="win-meta"><span class="val" style="color:var(--dsw-alias-label-secondary)">本周</span><span class="val">28% · $8.40 / $30</span></div>
+                <div class="bar" style="height:4px"><div class="bar-fill" style="width:28%"></div></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 卡1：模型与月额度 -->
+          <section class="slide">
+            <div class="card model-card">
+              <div class="model-head">
+                <span class="model-title">支持的模型与月额度</span>
+                <span class="model-count">21 个模型</span>
+              </div>
+              <div class="model-tbl">
+                <div class="tbl-head"><span>模型</span><span>月额度</span></div>
+                <div class="tbl-row"><span class="name">Grok 4.5</span><span class="cap">$15</span></div>
+                <div class="tbl-row"><span class="name">GPT 5.6 Luna</span><span class="cap">$15</span></div>
+                <div class="tbl-row"><span class="name">GLM 5.3</span><span class="cap">$15</span></div>
+                <div class="tbl-row"><span class="name">GLM 5.2</span><span class="cap">$60</span></div>
+                <div class="tbl-row"><span class="name">GLM 5.1</span><span class="cap">$60</span></div>
+                <div class="tbl-row"><span class="name">DeepSeek V4 Pro</span><span class="cap">$15</span></div>
+                <div class="tbl-row"><span class="name">DeepSeek V4 Flash</span><span class="cap">$30</span></div>
+                <div class="tbl-row"><span class="name">Kimi K3</span><span class="cap">$15</span></div>
+                <div class="tbl-row"><span class="name">Kimi K2.7 Code</span><span class="cap">$60</span></div>
+                <div class="tbl-row"><span class="name">Kimi K2.6</span><span class="cap">$60</span></div>
+                <div class="tbl-row"><span class="name">Qwen3.8 Max</span><span class="cap">$15</span></div>
+                <div class="tbl-row"><span class="name">Qwen3.7 Max</span><span class="cap">$60</span></div>
+                <div class="tbl-row"><span class="name">Qwen3.7 Plus</span><span class="cap">$60</span></div>
+                <div class="tbl-row"><span class="name">Qwen3.6 Plus</span><span class="cap">$60</span></div>
+                <div class="tbl-row"><span class="name">MiMo V2.5</span><span class="cap">$60</span></div>
+                <div class="tbl-row"><span class="name">MiMo V2.5 Pro</span><span class="cap">$15</span></div>
+                <div class="tbl-row"><span class="name">MiniMax M3</span><span class="cap">$60</span></div>
+                <div class="tbl-row"><span class="name">MiniMax M2.7</span><span class="cap">$60</span></div>
+                <div class="tbl-row"><span class="name">MiniMax M2.5</span><span class="cap">$60</span></div>
+                <div class="tbl-row"><span class="name">Muse Spark 1.2 Contributor</span><span class="cap">$60</span></div>
+                <div class="tbl-row"><span class="name">Hy3</span><span class="cap">$60</span></div>
+              </div>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- 导航 -->
+        <div class="dots">
+          <button class="arrow" id="prev">‹</button>
+          <button class="dot active" data-i="0" title="Go 用量"></button>
+          <button class="dot" data-i="1" title="模型与月额度"></button>
+          <button class="arrow" id="next">›</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="page-note">
+    <b>这是 Open Design（Linear 风格）重设计后的预览</b>：细边框层级、等宽数字、克制强调色、悬浮微交互。
+    弹窗内左右滑动 / 点圆点切换两张卡。真实插件落地时，颜色/背景全部映射到 DSH 的
+    <b>--dsw-alias-*</b> 主题变量，深浅色主题自动适配。
+  </p>
+
+<script>
+  const track = document.getElementById("track");
+  const dots = Array.from(document.querySelectorAll(".dot"));
+  const step = () => (track.clientWidth > 0 ? track.clientWidth - 44 + 12 : 0);
+  const goTo = (i) => {
+    const s = step(); if (s > 0) track.scrollTo({ left: i * s, behavior: "smooth" });
+    setActive(i);
+  };
+  const setActive = (i) => dots.forEach((d, k) => d.classList.toggle("active", k === i));
+  track.addEventListener("scroll", () => {
+    const s = step(); if (s <= 0) return;
+    setActive(Math.max(0, Math.min(1, Math.round(track.scrollLeft / s))));
+  });
+  dots.forEach((d) => d.addEventListener("click", () => goTo(Number(d.dataset.i))));
+  document.getElementById("prev").addEventListener("click", () => goTo(0));
+  document.getElementById("next").addEventListener("click", () => goTo(1));
+</script>
+</body>
+</html>
