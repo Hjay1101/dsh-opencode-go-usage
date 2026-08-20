@@ -147,6 +147,7 @@ window.__ModuleLoader__.load({
       { id: "minimax-m3", name: "MiniMax M3", monthlyUsd: 60 },
       { id: "minimax-m2.7", name: "MiniMax M2.7", monthlyUsd: 60 },
       { id: "minimax-m2.5", name: "MiniMax M2.5", monthlyUsd: 60 },
+      { id: "muse-spark-1.2-contributor", name: "Muse Spark 1.2 Contributor", monthlyUsd: 60 },
       { id: "hy3", name: "Hy3", monthlyUsd: 60 },
     ];
 
