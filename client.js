@@ -315,6 +315,66 @@ window.__ModuleLoader__.load({
       );
     }
 
+    // ---------- 弹窗壳：像素级对齐预览页（headless Modal + 作用域样式） ----------
+    let ocuCssInjected = false;
+    function ensureOcuCss() {
+      if (ocuCssInjected) return;
+      ocuCssInjected = true;
+      try {
+        if (document.getElementById("ocu-style")) return;
+        const style = document.createElement("style");
+        style.id = "ocu-style";
+        style.textContent = `
+          .ocu-modal {
+            width: min(560px, calc(100vw - 32px)); max-width: 100%;
+            padding: 0; gap: 0; border-radius: 14px;
+            background: #141517;
+            border: 1px solid rgba(255,255,255,0.09);
+            box-shadow: rgba(0,0,0,0.4) 0 24px 64px -12px, rgba(0,0,0,0.2) 0 0 0 1px;
+            overflow: hidden;
+            --dsw-alias-bg-layer-1: #141517;
+            --dsw-alias-bg-layer-2: #141517;
+            --dsw-alias-bg-layer-3: #202226;
+            --dsw-alias-border-l1: rgba(255,255,255,0.05);
+            --dsw-alias-border-l2: rgba(255,255,255,0.09);
+            --dsw-alias-label-primary: #f4f5f6;
+            --dsw-alias-label-secondary: #a9adb8;
+            --dsw-alias-label-tertiary: #6b7080;
+            --dsw-alias-state-business-primary: #7170ff;
+            font-family: Inter, "SF Pro Display", -apple-system, system-ui, "Segoe UI", sans-serif;
+          }
+          .ocu-modal ::-webkit-scrollbar { width: 6px; height: 6px; }
+          .ocu-modal ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.09); border-radius: 3px; }
+          .ocu-modal .ocu-track::-webkit-scrollbar { display: none; }
+        `;
+        document.head.appendChild(style);
+      } catch { /* 忽略 */ }
+    }
+
+    function ModalShell(props) {
+      const { title, closeLabel, onClose, children } = props;
+      const head = React.createElement("div",
+        { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px 10px", borderBottom: "1px solid var(--dsw-alias-border-l1)" } },
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 590, color: "var(--dsw-alias-label-primary)", letterSpacing: "-0.1px" } },
+          React.createElement("span", { style: { display: "inline-flex", color: "var(--dsw-alias-state-business-primary)" } },
+            React.createElement(BoltIcon, null)
+          ),
+          React.createElement("span", null, title)
+        ),
+        React.createElement("button", {
+          type: "button",
+          "aria-label": closeLabel,
+          title: closeLabel,
+          onClick: onClose,
+          style: { width: 24, height: 24, borderRadius: 6, border: "1px solid var(--dsw-alias-border-l1)", background: "rgba(255,255,255,0.02)", color: "var(--dsw-alias-label-tertiary)", cursor: "pointer", display: "grid", placeItems: "center", fontSize: 13, padding: 0, fontFamily: "inherit" },
+        }, "✕")
+      );
+      return React.createElement("div", null,
+        head,
+        React.createElement("div", { style: { padding: 16 } }, children)
+      );
+    }
+
     // ---------- 用量主体（设置页用：堆叠卡片 + 脚注 + 刷新） ----------
     function UsageBody(props) {
       const { query, t, title, showFootnote = false, showRefresh = true } = props;
@@ -474,7 +534,7 @@ window.__ModuleLoader__.load({
         ),
       ];
       return React.createElement("div", { style: styles.carouselWrap },
-        React.createElement("div", { ref: trackRef, style: styles.track, onScroll }, slides),
+        React.createElement("div", { ref: trackRef, className: "ocu-track", style: styles.track, onScroll }, slides),
         React.createElement("div", { style: styles.dots },
           React.createElement("button", { style: styles.arrow, type: "button", "aria-label": "<", onClick: () => goTo(Math.max(0, active - 1)) }, "‹"),
           slides.map((s, i) =>
@@ -543,17 +603,21 @@ window.__ModuleLoader__.load({
           {
             open,
             onClose: () => setOpen(false),
+            headless: true,
+            className: "ocu-modal",
             title: t("title"),
             closeLabel: t("close"),
-            contentClassName: "opencode-go-usage-modal-body",
           },
-          React.createElement(CarouselUsage, { query: forceQuery, t })
+          React.createElement(ModalShell, { title: t("title"), closeLabel: t("close"), onClose: () => setOpen(false) },
+            React.createElement(CarouselUsage, { query: forceQuery, t })
+          )
         )
       );
     }
 
     // ---------- 插件装配 ----------
     function apply(ctx) {
+      ensureOcuCss();
       const mountReady = ctx.remote.$mount(TYPERT_REMOTE);
       ctx.effect(() => ctx.locale.register(NS, { zh, en }), "opencode-go-usage: dictionaries");
       const t = ctx.locale.bind(NS);
