@@ -14,11 +14,17 @@ const windowSchema = z.object({
   resetsAt: z.string().nullable(),
 });
 
+const modelEntrySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  monthlyUsd: z.number().nullable(),
+  free: z.boolean().optional(),
+});
 const modelsResultSchema = z.object({
   configured: z.boolean(),
   reason: z.string().nullable(),
   error: z.string().nullable(),
-  models: z.array(z.string()).nullable(),
+  models: z.array(modelEntrySchema).nullable(),
 });
 
 const resultSchema = z.object({

@@ -19,8 +19,33 @@ import { readFile } from "node:fs/promises";
 const DEFAULT_BASE_URL = "https://opencode.ai/zen/go/v1/usage";
 /** 官方模型清单接口（OpenAI 兼容 /models）。 */
 const DEFAULT_MODELS_URL = "https://opencode.ai/zen/go/v1/models";
-/** 模型清单缓存 TTL：清单变化不频繁，1 小时刷新一次足够。 */
+/** 额度数据源（仓库根 models.json，仅数据、无敏感内容）。 */
+const MODELS_JSON_URL =
+  "https://raw.githubusercontent.com/Hjay1101/dsh-opencode-go-usage/main/models.json";
+/** 数据缓存 TTL：清单/额度变化不频繁，1 小时刷新一次足够。 */
 const MODELS_CACHE_TTL_MS = 60 * 60 * 1000;
+/** 严格校验：额度表必须长这样才采用，否则整体回退（防篡改/防解析错）。 */
+function validateCapsTable(v) {
+  if (!Array.isArray(v) || v.length === 0 || v.length > 80) return null;
+  const out = {};
+  for (const item of v) {
+    if (!item || typeof item !== "object") return null;
+    const id = item.id, name = item.name;
+    if (typeof id !== "string" || id.length === 0) return null;
+    if (typeof name !== "string" || name.length === 0) return null;
+    if (item.free) {
+      out[id] = { id, name, monthlyUsd: null, free: true };
+    } else {
+      const cap = item.monthlyUsd;
+      if (typeof cap !== "number" || !Number.isFinite(cap) || cap < 0) return null;
+      out[id] = { id, name, monthlyUsd: cap, free: false };
+    }
+  }
+  return out;
+}
+function tableArray(capsMap) {
+  return Object.keys(capsMap).map((k) => capsMap[k]);
+}
 /** 单次请求超时。 */
 const DEFAULT_TIMEOUT_MS = 15000;
 /** 结果缓存 TTL：接口未公开文档，避免每次打开页面都去打一次。 */
@@ -94,7 +119,8 @@ export class OpencodeGoUsageGateway extends TypertRemoteService {
     this.config = config ?? {};
     // 简单 TTL 缓存：同一个 baseUrl 在缓存期内直接复用结果。
     this._cache = { key: null, at: 0, value: null };
-    this._modelsCache = { at: 0, value: null };
+    this._modelsCache = { at: 0, value: null }; // 实时 /models 清单（ids）
+    this._capsCache = { at: 0, value: null };   // 额度表（id → {id,name,monthlyUsd,free}）
   }
 
   /**
@@ -169,20 +195,14 @@ export class OpencodeGoUsageGateway extends TypertRemoteService {
     return result;
   }
 
-  /**
-   * 查询官方支持的模型清单（实时）。1 小时缓存。
-   * 返回可用模型 id 数组；无 Key 或接口失败时 models 为 null，
-   * 客户端据此回退到静态额度表。
-   */
-  async models() {
+  /** 运行时拉取 /models 实时清单（1h 缓存），失败返回 null。 */
+  async _liveIds() {
     const now = Date.now();
-    if (this._modelsCache.value && now - this._modelsCache.at < MODELS_CACHE_TTL_MS) {
+    if (this._modelsCache.value !== null && now - this._modelsCache.at < MODELS_CACHE_TTL_MS) {
       return this._modelsCache.value;
     }
     const apiKey = await resolveApiKey(this.ctx);
-    if (!apiKey) {
-      return { configured: false, reason: "no-api-key", error: null, models: null };
-    }
+    if (!apiKey) { this._modelsCache = { at: now, value: null }; return null; }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
     let res;
@@ -191,28 +211,60 @@ export class OpencodeGoUsageGateway extends TypertRemoteService {
         headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
         signal: controller.signal,
       });
-    } catch {
-      return { configured: true, reason: null, error: "network", models: null };
-    } finally {
-      clearTimeout(timer);
-    }
-    if (!res.ok) {
-      return { configured: true, reason: null, error: `http-${res.status}`, models: null };
-    }
+    } catch { this._modelsCache = { at: now, value: null }; return null; }
+    finally { clearTimeout(timer); }
+    if (!res.ok) { this._modelsCache = { at: now, value: null }; return null; }
     let body;
-    try {
-      body = await res.json();
-    } catch {
-      return { configured: true, reason: null, error: "bad-json", models: null };
-    }
+    try { body = await res.json(); } catch { this._modelsCache = { at: now, value: null }; return null; }
     const ids = Array.isArray(body && body.data)
-      ? body.data
-          .map((m) => (m && typeof m === "object" && typeof m.id === "string" ? m.id : null))
-          .filter(Boolean)
+      ? body.data.map((m) => (m && typeof m.id === "string" ? m.id : null)).filter(Boolean)
       : null;
-    const result = { configured: true, reason: null, error: null, models: ids };
-    this._modelsCache = { at: now, value: result };
-    return result;
+    this._modelsCache = { at: now, value: ids };
+    return ids;
+  }
+
+  /** 运行时拉取 models.json（GitHub raw），严格校验后转 map；失败回退包内内置 models.json。 */
+  async _caps() {
+    const now = Date.now();
+    if (this._capsCache.value !== null && now - this._capsCache.at < MODELS_CACHE_TTL_MS) {
+      return this._capsCache.value;
+    }
+    // 1) 线上数据源（数据更新走它，用户无需重装）
+    try {
+      const res = await fetch(MODELS_JSON_URL, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS) });
+      if (res.ok) {
+        const v = validateCapsTable(await res.json());
+        if (v) { this._capsCache = { at: now, value: v }; return v; }
+      }
+    } catch { /* 走回退 */ }
+    // 2) 包内内置快照（离线兜底）
+    try {
+      const raw = await readFile(new URL("./models.json", import.meta.url), "utf8");
+      const v = validateCapsTable(JSON.parse(raw));
+      if (v) { this._capsCache = { at: now, value: v }; return v; }
+    } catch { /* 彻底无兜底 */ }
+    this._capsCache = { at: now, value: null };
+    return null;
+  }
+
+  /**
+   * 返回展示用的模型表（实时清单 ∩ 额度表，接口顺序）：每个元素
+   * { id, name, monthlyUsd, free }。数据不可得时 models 为 null，
+   * 客户端回退到自带静态表。
+   */
+  async models() {
+    const now = Date.now();
+    const [ids, caps] = await Promise.all([this._liveIds(), this._caps()]);
+    if (!caps) return { configured: true, reason: null, error: null, models: null };
+    let table = [];
+    if (ids && ids.length) {
+      for (const id of ids) {
+        const c = caps[id];
+        if (c && (typeof c.monthlyUsd === "number" || c.free)) table.push(c);
+      }
+    }
+    if (table.length === 0) table = tableArray(caps); // 兜底：无实时清单时用整个额度表
+    return { configured: true, reason: null, error: null, models: table };
   }
 }
 

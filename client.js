@@ -149,11 +149,10 @@ window.__ModuleLoader__.load({
     // ---------- 官方配额（政策数字，用于 percent×配额换算已用金额） ----------
     const QUOTAS = { rolling: 12, weekly: 30, monthly: 60 };
 
-    // ---------- 官方支持的模型与限额（静态表） ----------
-    // 数据来源：opencode.ai/docs/go（公开文档，含每模型月额度和 5h/周/月
-    // 请求上限估算）与 /zen/go/v1/models（模型清单）。无公开数据的模型
-    // 显示 "—"。清单随官方调整，需更新时改这里即可。
-    // 字段：id, name, monthlyUsd(月额度)
+    // ---------- 官方支持的模型与限额（离线兜底快照） ----------
+    // 数据来源：仓库根 models.json（运行时由 Host 实时拉取）；本表仅作
+    // 断网/拉取失败时的本地回退，字段同 models.json。更新以 models.json 为准：
+    // scripts/sync-models.js 会自动同步两者。
     const MODEL_LIST = [
       { id: "grok-4.5", name: "Grok 4.5", monthlyUsd: 15 },
       { id: "gpt-5.6-luna", name: "GPT 5.6 Luna", monthlyUsd: 15 },
@@ -512,25 +511,15 @@ window.__ModuleLoader__.load({
 
     // ---------- 轮播弹窗（v0.3.1） ----------
     // 卡0：Go 用量总览；卡1：支持的模型与限额表。
-    // 展示列表 = 实时接口清单 ∩ 额度表（live 为 null/空时回退静态表）
-    function computeDisplayList(live) {
-      if (live && live.length) {
-        const capMap = {};
-        MODEL_LIST.forEach((m) => { capMap[m.id] = m; });
-        const shown = [];
-        for (const id of live) {
-          const e = capMap[id];
-          if (e && (typeof e.monthlyUsd === "number" || e.free)) shown.push(e);
-        }
-        if (shown.length) return shown;
-      }
-      return MODEL_LIST;
+    // Host 已算好「实时清单 ∩ 额度表」；为空/失败时回退客户端静态表
+    function computeDisplayList(table) {
+      return table && table.length ? table : MODEL_LIST;
     }
 
     function CarouselUsage(props) {
       const { query, queryModels, t } = props;
       const [state, setState] = React.useState({ kind: "loading" });
-      const [live, setLive] = React.useState(null);
+      const [modelTable, setModelTable] = React.useState(null);
       const [active, setActive] = React.useState(0);
       const trackRef = useRef(null);
 
@@ -550,13 +539,13 @@ window.__ModuleLoader__.load({
 
       React.useEffect(() => { load(); }, [load]);
 
-      // 后台拉取实时模型清单（1h 缓存；失败/无 Key 静默回退静态表）
+      // 后台拉取模型表（Host：实时清单 ∩ 额度表；失败/无 Key 静默回退静态表）
       React.useEffect(() => {
         let alive = true;
         queryModels().then((r) => {
           if (!alive) return;
           const models = r && r.value && Array.isArray(r.value.models) ? r.value.models : null;
-          setLive(models);
+          setModelTable(models);
         }).catch(() => {});
         return () => { alive = false; };
       }, [queryModels]);
@@ -606,7 +595,7 @@ window.__ModuleLoader__.load({
           React.createElement(OverviewCard, { usage, t })
         ),
         React.createElement("div", { key: "models", style: styles.slide },
-          React.createElement(ModelCard, { t, list: computeDisplayList(live) })
+          React.createElement(ModelCard, { t, list: computeDisplayList(modelTable) })
         ),
       ];
       return React.createElement("div", { style: styles.carouselWrap },
