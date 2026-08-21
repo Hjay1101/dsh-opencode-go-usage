@@ -150,6 +150,7 @@ window.__ModuleLoader__.load({
       { id: "ox-alpha-free", name: "Ox Alpha Free", monthlyUsd: null, free: true },
       { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro", monthlyUsd: 15 },
       { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash", monthlyUsd: 30 },
+      { id: "deepseek-v4-flash-vision-exp", name: "DeepSeek V4 Flash Vision Exp", monthlyUsd: 15 },
       { id: "kimi-k3", name: "Kimi K3", monthlyUsd: 15 },
       { id: "kimi-k2.7-code", name: "Kimi K2.7 Code", monthlyUsd: 60 },
       { id: "kimi-k2.6", name: "Kimi K2.6", monthlyUsd: 60 },
