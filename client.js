@@ -193,7 +193,7 @@ window.__ModuleLoader__.load({
       cardMeta: { color: "var(--dsw-alias-label-tertiary)", fontSize: 12, margin: 0 },
       // 进度条
       barTrack: { position: "relative", height: 6, borderRadius: 999, background: "var(--dsw-alias-bg-layer-1)", overflow: "hidden" },
-      barFill: { height: "100%", borderRadius: 999, background: "linear-gradient(90deg, var(--dsw-alias-state-business-primary), #9b9bff)", boxShadow: "0 0 10px rgba(113,112,255,0.45)", transition: "width .45s cubic-bezier(.22,1,.36,1)" },
+      barFill: { height: "100%", borderRadius: 999, background: "linear-gradient(90deg, var(--dsw-alias-state-business-primary), color-mix(in srgb, var(--dsw-alias-state-business-primary) 55%, white))", boxShadow: "0 0 10px color-mix(in srgb, var(--dsw-alias-state-business-primary) 45%, transparent)", transition: "width .45s cubic-bezier(.22,1,.36,1)" },
       barThin: { position: "relative", height: 4, borderRadius: 999, background: "var(--dsw-alias-bg-layer-1)", overflow: "hidden" },
       row: { display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--dsw-alias-label-secondary)", gap: 8 },
       rowLabel: { color: "var(--dsw-alias-label-tertiary)", fontSize: 12 },
@@ -207,11 +207,11 @@ window.__ModuleLoader__.load({
       dots: { display: "flex", alignItems: "center", justifyContent: "center", gap: 12 },
       dot: { width: 6, height: 6, borderRadius: "50%", padding: 0, cursor: "pointer", border: "1px solid var(--dsw-alias-border-l2)", background: "transparent", transition: "all .2s ease", flex: "none" },
       dotActive: { width: 20, borderRadius: 999, background: "var(--dsw-alias-state-business-primary)", borderColor: "var(--dsw-alias-state-business-primary)" },
-      arrow: { border: "1px solid var(--dsw-alias-border-l1)", background: "rgba(255,255,255,0.02)", color: "var(--dsw-alias-label-secondary)", width: 24, height: 24, borderRadius: 7, cursor: "pointer", fontSize: 14, lineHeight: 1, display: "grid", placeItems: "center", padding: 0, transition: "background .15s ease, color .15s ease, border-color .15s ease" },
+      arrow: { border: "1px solid var(--dsw-alias-border-l1)", background: "transparent", color: "var(--dsw-alias-label-secondary)", width: 24, height: 24, borderRadius: 7, cursor: "pointer", fontSize: 14, lineHeight: 1, display: "grid", placeItems: "center", padding: 0, transition: "background .15s ease, color .15s ease, border-color .15s ease" },
       // 总览卡（卡0）
       ovHead: { display: "flex", alignItems: "center", justifyContent: "space-between" },
       ovTitle: { fontSize: 13, fontWeight: 590, color: "var(--dsw-alias-label-secondary)", letterSpacing: "-0.1px" },
-      ovPill: { fontSize: 11, fontWeight: 510, letterSpacing: "0.3px", color: "var(--dsw-alias-state-business-primary)", background: "rgba(113,112,255,0.14)", border: "1px solid rgba(113,112,255,0.25)", padding: "2px 8px", borderRadius: 999, whiteSpace: "nowrap" },
+      ovPill: { fontSize: 11, fontWeight: 510, letterSpacing: "0.3px", color: "var(--dsw-alias-state-business-primary)", background: "color-mix(in srgb, var(--dsw-alias-state-business-primary) 14%, transparent)", border: "1px solid color-mix(in srgb, var(--dsw-alias-state-business-primary) 25%, transparent)", padding: "2px 8px", borderRadius: 999, whiteSpace: "nowrap" },
       heroMain: { display: "flex", alignItems: "baseline", gap: 10 },
       heroNum: { fontFamily: MONO, fontSize: 40, fontWeight: 510, lineHeight: 1, letterSpacing: "-1.2px", color: "var(--dsw-alias-label-primary)", fontVariantNumeric: "tabular-nums" },
       heroUnit: { fontSize: 13, color: "var(--dsw-alias-label-tertiary)" },
@@ -230,6 +230,7 @@ window.__ModuleLoader__.load({
       tblHead: { display: "grid", gridTemplateColumns: "1fr 0.6fr", gap: 12, padding: "6px 18px 8px", position: "sticky", top: 0, zIndex: 1, background: "var(--dsw-alias-bg-layer-3)", borderBottom: "1px solid var(--dsw-alias-border-l1)", fontSize: "10.5px", fontWeight: 590, letterSpacing: "0.6px", textTransform: "uppercase", color: "var(--dsw-alias-label-tertiary)" },
       tblHeadRight: { textAlign: "right" },
       tblRow: { display: "grid", gridTemplateColumns: "1fr 0.6fr", gap: 12, padding: "8px 18px", alignItems: "center", borderBottom: "1px solid var(--dsw-alias-border-l1)", transition: "background .12s ease" },
+      tblRowHover: { background: "var(--dsw-alias-bg-layer-1)" },
       tblName: { fontSize: "12.5px", fontWeight: 510, color: "var(--dsw-alias-label-primary)", letterSpacing: "-0.1px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
       tblCap: { textAlign: "right", fontSize: "12.5px", fontWeight: 590, fontFamily: MONO, fontVariantNumeric: "tabular-nums", color: "var(--dsw-alias-state-business-primary)" },
     };
@@ -343,58 +344,20 @@ window.__ModuleLoader__.load({
         const style = document.createElement("style");
         style.id = "ocu-style";
         style.textContent = `
-          /* 结构：两主题统一（宽度 / 圆角 / 内边距 / 字体） */
+          /* 结构：两主题统一（宽度 / 圆角 / 内边距 / 字体）。颜色一律走
+             --dsw-alias-* 主题变量，与外观类插件（如 dsh-ui-appearance）
+             的自定义主题完全兼容。 */
           .ocu-modal {
             width: min(560px, calc(100vw - 32px)); max-width: 100%;
             padding: 0; gap: 0; border-radius: 14px; overflow: hidden;
             border: 1px solid var(--dsw-alias-border-l2);
             font-family: Inter, "SF Pro Display", -apple-system, system-ui, "Segoe UI", sans-serif;
           }
-          /* 深色：像素级对齐预览色板（用户认可的效果） */
-          html.ocu-dark .ocu-modal {
-            background: #141517;
-            box-shadow: rgba(0,0,0,0.4) 0 24px 64px -12px, rgba(0,0,0,0.2) 0 0 0 1px;
-            --dsw-alias-bg-layer-1: #141517;
-            --dsw-alias-bg-layer-2: #141517;
-            --dsw-alias-bg-layer-3: #202226;
-            --dsw-alias-border-l1: rgba(255,255,255,0.05);
-            --dsw-alias-border-l2: rgba(255,255,255,0.09);
-            --dsw-alias-label-primary: #f4f5f6;
-            --dsw-alias-label-secondary: #a9adb8;
-            --dsw-alias-label-tertiary: #6b7080;
-            --dsw-alias-state-business-primary: #7170ff;
-          }
-          /* 浅色：不覆盖任何颜色变量，原生浅色主题自然流出 */
           .ocu-modal ::-webkit-scrollbar { width: 6px; height: 6px; }
           .ocu-modal ::-webkit-scrollbar-thumb { background: var(--dsw-alias-border-l2); border-radius: 3px; }
           .ocu-modal .ocu-track::-webkit-scrollbar { display: none; }
         `;
         document.head.appendChild(style);
-      } catch { /* 忽略 */ }
-    }
-
-    // 主题探测：解析 alias 变量亮度判断深浅，切换 html.ocu-dark
-    function refreshThemeClass() {
-      try {
-        const doc = document.documentElement;
-        const v = getComputedStyle(doc).getPropertyValue("--dsw-alias-bg-layer-0").trim();
-        const m = v.match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/);
-        let lum;
-        if (m) lum = (0.299 * Number(m[1]) + 0.587 * Number(m[2]) + 0.114 * Number(m[3])) / 255;
-        else lum = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? 0 : 1;
-        doc.classList.toggle("ocu-dark", lum < 0.5);
-      } catch { /* 忽略 */ }
-    }
-
-    // 跟随主题切换（监听 html 属性变化，浅深色即时生效）
-    function watchTheme() {
-      refreshThemeClass();
-      try {
-        const doc = document.documentElement;
-        if (doc.dataset.__ocuWatched) return;
-        doc.dataset.__ocuWatched = "1";
-        new MutationObserver(() => refreshThemeClass())
-          .observe(doc, { attributes: true, attributeFilter: ["class", "data-theme", "style"] });
       } catch { /* 忽略 */ }
     }
 
@@ -413,7 +376,9 @@ window.__ModuleLoader__.load({
           "aria-label": closeLabel,
           title: closeLabel,
           onClick: onClose,
-          style: { width: 24, height: 24, borderRadius: 6, border: "1px solid var(--dsw-alias-border-l1)", background: "rgba(255,255,255,0.02)", color: "var(--dsw-alias-label-tertiary)", cursor: "pointer", display: "grid", placeItems: "center", fontSize: 13, padding: 0, fontFamily: "inherit" },
+          style: { width: 24, height: 24, borderRadius: 6, border: "1px solid var(--dsw-alias-border-l1)", background: "transparent", color: "var(--dsw-alias-label-tertiary)", cursor: "pointer", display: "grid", placeItems: "center", fontSize: 13, padding: 0, fontFamily: "inherit" },
+          onMouseEnter: (e) => { e.currentTarget.style.background = "var(--dsw-alias-bg-layer-3)"; },
+          onMouseLeave: (e) => { e.currentTarget.style.background = "transparent"; },
         }, "✕")
       );
       return React.createElement("div", null,
@@ -486,6 +451,15 @@ window.__ModuleLoader__.load({
       );
     }
 
+    // 行悬浮背景切换（inline 样式无法用 :hover，用事件切换，两主题均可见）
+    function HoverRow(props) {
+      const { style, hoverStyle, children } = props;
+      const [hover, setHover] = React.useState(false);
+      return React.createElement("div",
+        { style: hover ? { ...style, ...hoverStyle } : style, onMouseEnter: () => setHover(true), onMouseLeave: () => setHover(false) },
+        children);
+    }
+
     // ---------- 模型与月额度表格（弹窗卡1，新设计） ----------
     function ModelCard(props) {
       const { t, list } = props;
@@ -494,7 +468,7 @@ window.__ModuleLoader__.load({
         React.createElement("span", { style: styles.tblHeadRight }, t("capCol"))
       );
       const rows = list.map((m) =>
-        React.createElement("div", { key: m.id, style: styles.tblRow },
+        React.createElement(HoverRow, { key: m.id, style: styles.tblRow, hoverStyle: styles.tblRowHover },
           React.createElement("span", { style: styles.tblName, title: m.id }, m.name),
           React.createElement("span", { style: m.free ? { ...styles.tblCap, color: "var(--dsw-alias-state-success-primary)" } : styles.tblCap },
             m.free ? t("free") : usd(m.monthlyUsd))
@@ -683,7 +657,6 @@ window.__ModuleLoader__.load({
     // ---------- 插件装配 ----------
     function apply(ctx) {
       ensureOcuCss();
-      watchTheme();
       const mountReady = ctx.remote.$mount(TYPERT_REMOTE);
       ctx.effect(() => ctx.locale.register(NS, { zh, en }), "opencode-go-usage: dictionaries");
       const t = ctx.locale.bind(NS);
