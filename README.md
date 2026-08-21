@@ -117,6 +117,21 @@ Pure ESM, no build step. Host files import `@deepseek-ai/*` peer dependencies; t
 - The usage endpoint is undocumented and may change; parsing is defensive and non-200 responses show a friendly status instead of crashing.
 - The limits ($12 / $30 / $60) are display-only references — they are not returned by the endpoint and may drift from your actual OpenCode Go plan.
 
+
+## 💡 Known gotcha / updating DSH
+
+This is a **client-only plugin** (declares `dsh.client`, no `dsh.bundle`). It must be loaded
+through the web profile's `cordis.patch.yml` `insert` — it must **never** appear in
+`dsh.profile.bundles`, or `dsh` boot fails with `declares no dsh.bundle in its package.json`
+in `dsh-app-boot`.
+
+After updating with `dsh plugin --profile web add github:Hjay1101/dsh-opencode-go-usage`, verify
+that this package is **not** listed under `dsh.profile.bundles` in
+`~/.dsh/profiles/web/package.json`; if it is, run `dsh plugin --profile web --help` once to trigger
+reconcile and clean it up.
+
+> Full gotcha notes live in the sibling `DSH_PLUGIN_DEV_NOTES.md`.
+
 ## License
 
 MIT

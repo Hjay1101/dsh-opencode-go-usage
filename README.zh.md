@@ -117,6 +117,19 @@ Authorization: Bearer <API_KEY>
 - 用量接口未公开文档、可能变动；解析做了防御式处理，非 200 响应会显示友好状态而非崩溃。
 - 限额（$12 / $30 / $60）仅作展示参考，不在接口返回中；它随 OpenCode Go 套餐变化，可能与实际不一致。
 
+
+## 💡 已知坑 / DSH 更新注意
+
+本插件是**纯客户端插件**（只声明 `dsh.client`，无 `dsh.bundle`）。它必须通过 web profile 的
+`cordis.patch.yml` 的 `insert` 加载，**绝不能**出现在 `dsh.profile.bundles` 列表里——否则
+`dsh` 启动会在 `dsh-app-boot` 报 `declares no dsh.bundle in its package.json` 崩溃。
+
+更新后用 `dsh plugin --profile web add github:Hjay1101/dsh-opencode-go-usage` 后，请核验
+`~/.dsh/profiles/web/package.json` 的 `dsh.profile.bundles` 中**没有**本包；若有，跑一次
+`dsh plugin --profile web --help` 触发 reconcile 自动清理即可。
+
+> 完整避坑经验见上级目录 `DSH_PLUGIN_DEV_NOTES.md`。
+
 ## 许可证
 
 MIT
