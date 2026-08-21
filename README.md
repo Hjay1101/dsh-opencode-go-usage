@@ -31,13 +31,8 @@ A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web GUI pl
 dsh plugin --profile web add github:Hjay1101/dsh-opencode-go-usage
 ```
 
-Add the plugin line to your profile patch layer (`$DSH_HOME/profiles/web/cordis.patch.yml`):
-
-```yaml
-- insert:
-    - id: opencode-go-usage
-      name: 'dsh-opencode-go-usage'
-```
+The package ships a bundle patch (`dsh.bundle`); `dsh plugin add` registers the Host gateway
+automatically — **no manual `cordis.patch.yml` edits required**.
 
 Restart `dsh web` for the host half and the client bundle to take effect. The plugin depends on the standard web composition (the `api-gateway` client Remote and the `settings.section` slot), both present in the default `dsh web` profile.
 
@@ -120,17 +115,13 @@ Pure ESM, no build step. Host files import `@deepseek-ai/*` peer dependencies; t
 
 ## 💡 Known gotcha / updating DSH
 
-This is a **client-only plugin** (declares `dsh.client`, no `dsh.bundle`). It must be loaded
-through the web profile's `cordis.patch.yml` `insert` — it must **never** appear in
-`dsh.profile.bundles`, or `dsh` boot fails with `declares no dsh.bundle in its package.json`
-in `dsh-app-boot`.
+This plugin is **dual-face**: `dsh.client` (browser) + `dsh.bundle.patch` (Host gateway cordis
+patch that registers the `opencodeUsage` service). It therefore **belongs** in
+`dsh.profile.bundles` — `dsh plugin add`'s reconcile adds it automatically, no manual edits.
 
-After updating with `dsh plugin --profile web add github:Hjay1101/dsh-opencode-go-usage`, verify
-that this package is **not** listed under `dsh.profile.bundles` in
-`~/.dsh/profiles/web/package.json`; if it is, run `dsh plugin --profile web --help` once to trigger
-reconcile and clean it up.
-
-> Full gotcha notes live in the sibling `DSH_PLUGIN_DEV_NOTES.md`.
+> Warning: a **pure client plugin with no `dsh.bundle.patch`** that ends up in
+> `dsh.profile.bundles` makes boot fail with `declares no dsh.bundle in its package.json` in
+> `dsh-app-boot`. Full gotcha notes live in the sibling `DSH_PLUGIN_DEV_NOTES.md`.
 
 ## License
 

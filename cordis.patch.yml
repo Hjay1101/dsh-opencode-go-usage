@@ -1,0 +1,6 @@
+# dsh-opencode-go-usage —— profile bundle patch.
+# 注册 Host 网关（Typert 服务键 opencodeUsage），让浏览器端客户端的
+# remote 调用在安装后立即可用，无需用户手动往 profile 里加 insert。
+- insert:
+    - id: opencode-go-usage
+      name: 'dsh-opencode-go-usage'

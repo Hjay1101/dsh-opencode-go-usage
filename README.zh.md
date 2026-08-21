@@ -31,15 +31,10 @@
 dsh plugin --profile web add github:Hjay1101/dsh-opencode-go-usage
 ```
 
-在你的 profile patch 层（`$DSH_HOME/profiles/web/cordis.patch.yml`）加入插件行：
+包内自带 bundle patch（`dsh.bundle`），`dsh plugin add` 会自动把 Host 网关注册进 profile，
+**无需手动编辑 `cordis.patch.yml`**。
 
-```yaml
-- insert:
-    - id: opencode-go-usage
-      name: 'dsh-opencode-go-usage'
-```
-
-重启 `dsh web` 使 host 半与客户端 bundle 生效。插件依赖标准 web 组合（`api-gateway` 的 client Remote 与 `settings.section` 槽位），默认 `dsh web` profile 均已具备。
+重启 `dsh web` 使 host 半与客户端生效。插件依赖标准 web 组合（`api-gateway` 的 client Remote 与 `settings.section` 槽位），默认 `dsh web` profile 均已具备。
 
 ## 配置
 
@@ -120,14 +115,12 @@ Authorization: Bearer <API_KEY>
 
 ## 💡 已知坑 / DSH 更新注意
 
-本插件是**纯客户端插件**（只声明 `dsh.client`，无 `dsh.bundle`）。它必须通过 web profile 的
-`cordis.patch.yml` 的 `insert` 加载，**绝不能**出现在 `dsh.profile.bundles` 列表里——否则
-`dsh` 启动会在 `dsh-app-boot` 报 `declares no dsh.bundle in its package.json` 崩溃。
+本插件是**双面插件**：`dsh.client`（浏览器端）+ `dsh.bundle.patch`（Host 网关的 cordis patch，
+自动注册 `opencodeUsage` 服务）。因此它**应该**出现在 `dsh.profile.bundles` 里——`dsh plugin add`
+的 reconcile 会自动加入，无需手动编辑。
 
-更新后用 `dsh plugin --profile web add github:Hjay1101/dsh-opencode-go-usage` 后，请核验
-`~/.dsh/profiles/web/package.json` 的 `dsh.profile.bundles` 中**没有**本包；若有，跑一次
-`dsh plugin --profile web --help` 触发 reconcile 自动清理即可。
-
+> 警告：**没有任何 `dsh.bundle.patch` 的纯客户端插件**若被误列进 `dsh.profile.bundles`，
+> `dsh` 启动会在 `dsh-app-boot` 报 `declares no dsh.bundle in its package.json` 崩溃。
 > 完整避坑经验见上级目录 `DSH_PLUGIN_DEV_NOTES.md`。
 
 ## 许可证
