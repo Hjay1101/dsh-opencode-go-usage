@@ -62,6 +62,7 @@ window.__ModuleLoader__.load({
       modelCount: "{n} 个模型",
       row5h: "5h 滚动",
       rowWeek: "本周",
+      hostNotLoaded: "插件 Host 未加载（服务未激活）。请确认已用 dsh plugin 安装本插件，然后重启 DeepSeek Harness。",
     };
     const en = {
       nav: "OpenCode Go",
@@ -96,6 +97,7 @@ window.__ModuleLoader__.load({
       modelCount: "{n} models",
       row5h: "5h rolling",
       rowWeek: "Week",
+      hostNotLoaded: "Plugin Host is not loaded (service inactive). Install the plugin with dsh plugin and restart DeepSeek Harness.",
     };
 
     // ---------- Remote 描述符 ----------
@@ -652,17 +654,25 @@ window.__ModuleLoader__.load({
       ctx.effect(() => ctx.locale.register(NS, { zh, en }), "opencode-go-usage: dictionaries");
       const t = ctx.locale.bind(NS);
 
+      const friendlyRemoteError = (e) => {
+        const msg = String((e && e.message) || e);
+        return /(unavailable|inactive|not loaded|no active)/i.test(msg)
+          ? new Error(t("hostNotLoaded"))
+          : (e instanceof Error ? e : new Error(msg));
+      };
       const query = async () => {
         await mountReady;
         const api = ctx.get("remote.opencodeUsage");
-        if (!api) throw new Error("opencodeUsage remote is unavailable");
-        return api.usage(false);
+        if (!api) throw new Error(t("hostNotLoaded"));
+        try { return await api.usage(false); }
+        catch (e) { throw friendlyRemoteError(e); }
       };
       const forceQuery = async () => {
         await mountReady;
         const api = ctx.get("remote.opencodeUsage");
-        if (!api) throw new Error("opencodeUsage remote is unavailable");
-        return api.usage(true);
+        if (!api) throw new Error(t("hostNotLoaded"));
+        try { return await api.usage(true); }
+        catch (e) { throw friendlyRemoteError(e); }
       };
 
       // 入口 1：设置页侧边栏常驻分区。
