@@ -12,7 +12,7 @@
 - 会话工具行新增 **用量闪电按钮**（`conversation.input.right`）：当当前模型是 `opencode-go` 时，模型选择器旁出现一个闪电图标；悬停显示三个窗口的百分比，点击弹出独立弹窗（打开即强制刷新，不受缓存影响）
 - 弹窗为**左右滑动卡片**（Linear 风格，Open Design 重设计）：卡0 = 用量总览（月用量大号等宽数字 + 5h/周小行 + 动画进度条），卡1 = 模型与月额度表（吸顶表头 / 悬浮高亮 / 等宽强调色金额）
 - 模型清单与额度**都实时跟随官方**（Host 后台拉取接口 + 仓库 `models.json`，1h 缓存 + 失败回退内置快照 + 严格校验）：按接口顺序展示、只保留有额度的模型，官方新增/下架/改额度自动跟到用户端，**用户无需重装**；`scripts/sync-models.js` 一键同步数据
-- 全部视觉映射 DSH 主题变量（--dsw-alias-*），深浅色自适应
+- 全部视觉映射 DSH 主题变量（--dsw-alias-*），深浅色自适应，且与外观类插件（如 dsh-ui-appearance 自定义主题色）完全兼容——不写死任何颜色
 - Host 端 Typert Remote `opencodeUsage/usage`：读取 API Key 并调用官方用量接口，支持 `force` 参数绕过缓存
 - 客户端用量页：每个窗口的百分比、进度条、限额参考值与重置时间
 - 结果缓存：同一配置下 60 秒内重复打开页面不重复请求接口
@@ -34,6 +34,15 @@ dsh plugin --profile web add github:Hjay1101/dsh-opencode-go-usage
 
 包内自带 bundle patch（`dsh.bundle`），`dsh plugin add` 会自动把 Host 网关注册进 profile，
 **无需手动编辑 `cordis.patch.yml`**。
+
+> ⚠️ **v0.4.6 之前安装过的老用户升级前必读**：旧版需要手动往
+> `~/.dsh/profiles/web/cordis.patch.yml` 加过 insert。升级前请**删除**该文件里下面这段，
+> 否则与包内 bundle patch 重复，启动直接报 `duplicate loader entry id: opencode-go-usage` 崩溃：
+> ```yaml
+> - insert:
+>     - id: opencode-go-usage
+>       name: 'dsh-opencode-go-usage'
+> ```
 
 重启 `dsh web` 使 host 半与客户端生效。插件依赖标准 web 组合（`api-gateway` 的 client Remote 与 `settings.section` 槽位），默认 `dsh web` profile 均已具备。
 

@@ -12,7 +12,7 @@ A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web GUI pl
 - Adds a **usage bolt button** to the composer tool row (`conversation.input.right`): when the active model is `opencode-go`, a lightning-bolt icon appears next to the model selector; hovering shows the three windows' percentages, clicking opens a standalone modal (fresh data on open, bypassing the cache)
 - The modal is a **swipeable carousel** (Linear-inspired redesign via Open Design): card 0 = usage overview (large monospaced monthly figure + 5h/week rows + animated bars), card 1 = model & cap table (sticky header / hover rows / monospaced accent caps)
 - Model list **and caps follow the official data live** (Host fetches the API + the repo's `models.json`, 1h cache, strict validation, falls back to a bundled snapshot on failure): API order, only models with a published cap are shown, official changes reach users **without reinstalling**; `scripts/sync-models.js` syncs the data in one command
-- All visuals map to DSH theme variables (--dsw-alias-*), adapting to dark/light themes
+- All visuals map to DSH theme variables (--dsw-alias-*), adapting to dark/light themes and fully compatible with appearance plugins (e.g. dsh-ui-appearance custom palettes) — no colors are hardcoded
 - Host-side Typert Remote `opencodeUsage/usage`: resolves the API key and calls the official usage endpoint; supports a `force` parameter to bypass the cache
 - Client usage page: percentage, progress bar, reference limit and reset time per window
 - Result caching: reopening the page within 60s does not hit the endpoint again
@@ -34,6 +34,15 @@ dsh plugin --profile web add github:Hjay1101/dsh-opencode-go-usage
 
 The package ships a bundle patch (`dsh.bundle`); `dsh plugin add` registers the Host gateway
 automatically — **no manual `cordis.patch.yml` edits required**.
+
+> ⚠️ **Upgrading from pre-0.4.6?** Old installs used a manual insert in
+> `~/.dsh/profiles/web/cordis.patch.yml`. Remove that block before upgrading — it duplicates the
+> bundle patch and boot fails with `duplicate loader entry id: opencode-go-usage`:
+> ```yaml
+> - insert:
+>     - id: opencode-go-usage
+>       name: 'dsh-opencode-go-usage'
+> ```
 
 Restart `dsh web` for the host half and the client bundle to take effect. The plugin depends on the standard web composition (the `api-gateway` client Remote and the `settings.section` slot), both present in the default `dsh web` profile.
 
