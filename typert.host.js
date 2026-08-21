@@ -14,6 +14,13 @@ const windowSchema = z.object({
   resetsAt: z.string().nullable(),
 });
 
+const modelsResultSchema = z.object({
+  configured: z.boolean(),
+  reason: z.string().nullable(),
+  error: z.string().nullable(),
+  models: z.array(z.string()).nullable(),
+});
+
 const resultSchema = z.object({
   configured: z.boolean(),
   reason: z.string().nullable(),
@@ -54,6 +61,19 @@ export const TYPERT = {
         mode: "strict",
         typeSymbol: "dsh-opencode-go-usage#OpencodeGoUsageResult",
         schema: resultSchema,
+      },
+    },
+    {
+      id: "dsh-opencode-go-usage#opencodeUsage/models",
+      service: "opencodeUsage",
+      namespace: "opencodeUsage",
+      method: "models",
+      invocation: { kind: "direct" },
+      parameters: [],
+      result: {
+        mode: "strict",
+        typeSymbol: "dsh-opencode-go-usage#OpencodeGoModelsResult",
+        schema: modelsResultSchema,
       },
     },
   ],

@@ -130,6 +130,19 @@ window.__ModuleLoader__.load({
             schema: { parse(value) { return value; } },
           },
         },
+        {
+          id: "dsh-opencode-go-usage#opencodeUsage/models",
+          service: "opencodeUsage",
+          namespace: "opencodeUsage",
+          method: "models",
+          invocation: { kind: "direct" },
+          parameters: [],
+          result: {
+            mode: "strict",
+            typeSymbol: "dsh-opencode-go-usage#OpencodeGoModelsResult",
+            schema: { parse(value) { return value; } },
+          },
+        },
       ],
     };
 
@@ -476,12 +489,12 @@ window.__ModuleLoader__.load({
 
     // ---------- 模型与月额度表格（弹窗卡1，新设计） ----------
     function ModelCard(props) {
-      const { t } = props;
+      const { t, list } = props;
       const head = React.createElement("div", { style: styles.tblHead },
         React.createElement("span", null, t("model")),
         React.createElement("span", { style: styles.tblHeadRight }, t("capCol"))
       );
-      const rows = MODEL_LIST.map((m) =>
+      const rows = list.map((m) =>
         React.createElement("div", { key: m.id, style: styles.tblRow },
           React.createElement("span", { style: styles.tblName, title: m.id }, m.name),
           React.createElement("span", { style: m.free ? { ...styles.tblCap, color: "var(--dsw-alias-state-success-primary)" } : styles.tblCap },
@@ -491,7 +504,7 @@ window.__ModuleLoader__.load({
       return React.createElement("div", { style: { ...styles.card, ...styles.modelCard, height: "100%" } },
         React.createElement("div", { style: styles.modelHead },
           React.createElement("span", { style: styles.modelTitle }, t("modelCardTitle")),
-          React.createElement("span", { style: styles.modelCount }, t("modelCount").replace("{n}", String(MODEL_LIST.length)))
+          React.createElement("span", { style: styles.modelCount }, t("modelCount").replace("{n}", String(list.length)))
         ),
         React.createElement("div", { style: styles.tableBody }, head, rows)
       );
@@ -499,9 +512,25 @@ window.__ModuleLoader__.load({
 
     // ---------- 轮播弹窗（v0.3.1） ----------
     // 卡0：Go 用量总览；卡1：支持的模型与限额表。
+    // 展示列表 = 实时接口清单 ∩ 额度表（live 为 null/空时回退静态表）
+    function computeDisplayList(live) {
+      if (live && live.length) {
+        const capMap = {};
+        MODEL_LIST.forEach((m) => { capMap[m.id] = m; });
+        const shown = [];
+        for (const id of live) {
+          const e = capMap[id];
+          if (e && (typeof e.monthlyUsd === "number" || e.free)) shown.push(e);
+        }
+        if (shown.length) return shown;
+      }
+      return MODEL_LIST;
+    }
+
     function CarouselUsage(props) {
-      const { query, t } = props;
+      const { query, queryModels, t } = props;
       const [state, setState] = React.useState({ kind: "loading" });
+      const [live, setLive] = React.useState(null);
       const [active, setActive] = React.useState(0);
       const trackRef = useRef(null);
 
@@ -520,6 +549,17 @@ window.__ModuleLoader__.load({
       }, [query]);
 
       React.useEffect(() => { load(); }, [load]);
+
+      // 后台拉取实时模型清单（1h 缓存；失败/无 Key 静默回退静态表）
+      React.useEffect(() => {
+        let alive = true;
+        queryModels().then((r) => {
+          if (!alive) return;
+          const models = r && r.value && Array.isArray(r.value.models) ? r.value.models : null;
+          setLive(models);
+        }).catch(() => {});
+        return () => { alive = false; };
+      }, [queryModels]);
 
       const pageStep = () => {
         const el = trackRef.current;
@@ -566,7 +606,7 @@ window.__ModuleLoader__.load({
           React.createElement(OverviewCard, { usage, t })
         ),
         React.createElement("div", { key: "models", style: styles.slide },
-          React.createElement(ModelCard, { t })
+          React.createElement(ModelCard, { t, list: computeDisplayList(live) })
         ),
       ];
       return React.createElement("div", { style: styles.carouselWrap },
@@ -596,7 +636,7 @@ window.__ModuleLoader__.load({
 
     // ---------- 工具行控件（conversation.input.right） ----------
     function UsageButton(props) {
-      const { directory, query, forceQuery, t } = props;
+      const { directory, query, forceQuery, queryModels, t } = props;
       const [open, setOpen] = React.useState(false);
       const [usage, setUsage] = React.useState(null);
 
@@ -645,7 +685,7 @@ window.__ModuleLoader__.load({
             closeLabel: t("close"),
           },
           React.createElement(ModalShell, { title: t("title"), closeLabel: t("close"), onClose: () => setOpen(false) },
-            React.createElement(CarouselUsage, { query: forceQuery, t })
+            React.createElement(CarouselUsage, { query: forceQuery, queryModels, t })
           )
         )
       );
@@ -679,6 +719,13 @@ window.__ModuleLoader__.load({
         try { return await api.usage(true); }
         catch (e) { throw friendlyRemoteError(e); }
       };
+      const queryModels = async () => {
+        await mountReady;
+        const api = ctx.get("remote.opencodeUsage");
+        if (!api) throw new Error(t("hostNotLoaded"));
+        try { return await api.models(); }
+        catch (e) { throw friendlyRemoteError(e); }
+      };
 
       // 入口 1：设置页侧边栏常驻分区。
       ctx.slots.inject("settings.section", () => ctx.slots.register({
@@ -700,7 +747,7 @@ window.__ModuleLoader__.load({
           locale: NS,
           inject: (sessionId) => {
             const directory = models.directoryFor(sessionId);
-            return { directory: directory.store, query, forceQuery, t };
+            return { directory: directory.store, query, forceQuery, queryModels, t };
           },
         }, UsageButton));
       });

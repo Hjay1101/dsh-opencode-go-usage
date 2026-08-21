@@ -17,6 +17,10 @@ import { readFile } from "node:fs/promises";
 
 /** 官方用量接口（未写入 OpenCode 公开文档，见 README 已知限制）。 */
 const DEFAULT_BASE_URL = "https://opencode.ai/zen/go/v1/usage";
+/** 官方模型清单接口（OpenAI 兼容 /models）。 */
+const DEFAULT_MODELS_URL = "https://opencode.ai/zen/go/v1/models";
+/** 模型清单缓存 TTL：清单变化不频繁，1 小时刷新一次足够。 */
+const MODELS_CACHE_TTL_MS = 60 * 60 * 1000;
 /** 单次请求超时。 */
 const DEFAULT_TIMEOUT_MS = 15000;
 /** 结果缓存 TTL：接口未公开文档，避免每次打开页面都去打一次。 */
@@ -90,6 +94,7 @@ export class OpencodeGoUsageGateway extends TypertRemoteService {
     this.config = config ?? {};
     // 简单 TTL 缓存：同一个 baseUrl 在缓存期内直接复用结果。
     this._cache = { key: null, at: 0, value: null };
+    this._modelsCache = { at: 0, value: null };
   }
 
   /**
@@ -161,6 +166,52 @@ export class OpencodeGoUsageGateway extends TypertRemoteService {
     };
 
     this._cache = { key: baseUrl, at: now, value: result };
+    return result;
+  }
+
+  /**
+   * 查询官方支持的模型清单（实时）。1 小时缓存。
+   * 返回可用模型 id 数组；无 Key 或接口失败时 models 为 null，
+   * 客户端据此回退到静态额度表。
+   */
+  async models() {
+    const now = Date.now();
+    if (this._modelsCache.value && now - this._modelsCache.at < MODELS_CACHE_TTL_MS) {
+      return this._modelsCache.value;
+    }
+    const apiKey = await resolveApiKey(this.ctx);
+    if (!apiKey) {
+      return { configured: false, reason: "no-api-key", error: null, models: null };
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+    let res;
+    try {
+      res = await fetch(DEFAULT_MODELS_URL, {
+        headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+        signal: controller.signal,
+      });
+    } catch {
+      return { configured: true, reason: null, error: "network", models: null };
+    } finally {
+      clearTimeout(timer);
+    }
+    if (!res.ok) {
+      return { configured: true, reason: null, error: `http-${res.status}`, models: null };
+    }
+    let body;
+    try {
+      body = await res.json();
+    } catch {
+      return { configured: true, reason: null, error: "bad-json", models: null };
+    }
+    const ids = Array.isArray(body && body.data)
+      ? body.data
+          .map((m) => (m && typeof m === "object" && typeof m.id === "string" ? m.id : null))
+          .filter(Boolean)
+      : null;
+    const result = { configured: true, reason: null, error: null, models: ids };
+    this._modelsCache = { at: now, value: result };
     return result;
   }
 }
