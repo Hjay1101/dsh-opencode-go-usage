@@ -63,6 +63,7 @@ window.__ModuleLoader__.load({
       row5h: "5h 滚动",
       rowWeek: "本周",
       hostNotLoaded: "插件 Host 未加载（服务未激活）。请确认已用 dsh plugin 安装本插件，然后重启 DeepSeek Harness。",
+      free: "免费",
     };
     const en = {
       nav: "OpenCode Go",
@@ -98,6 +99,7 @@ window.__ModuleLoader__.load({
       row5h: "5h rolling",
       rowWeek: "Week",
       hostNotLoaded: "Plugin Host is not loaded (service inactive). Install the plugin with dsh plugin and restart DeepSeek Harness.",
+      free: "Free",
     };
 
     // ---------- Remote 描述符 ----------
@@ -145,6 +147,7 @@ window.__ModuleLoader__.load({
       { id: "glm-5.3", name: "GLM 5.3", monthlyUsd: 15 },
       { id: "glm-5.2", name: "GLM 5.2", monthlyUsd: 60 },
       { id: "glm-5.1", name: "GLM 5.1", monthlyUsd: 60 },
+      { id: "ox-alpha-free", name: "Ox Alpha Free", monthlyUsd: null, free: true },
       { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro", monthlyUsd: 15 },
       { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash", monthlyUsd: 30 },
       { id: "kimi-k3", name: "Kimi K3", monthlyUsd: 15 },
@@ -480,7 +483,8 @@ window.__ModuleLoader__.load({
       const rows = MODEL_LIST.map((m) =>
         React.createElement("div", { key: m.id, style: styles.tblRow },
           React.createElement("span", { style: styles.tblName, title: m.id }, m.name),
-          React.createElement("span", { style: styles.tblCap }, usd(m.monthlyUsd))
+          React.createElement("span", { style: m.free ? { ...styles.tblCap, color: "var(--dsw-alias-state-success-primary)" } : styles.tblCap },
+            m.free ? t("free") : usd(m.monthlyUsd))
         )
       );
       return React.createElement("div", { style: { ...styles.card, ...styles.modelCard, height: "100%" } },
