@@ -9,6 +9,7 @@ A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web GUI pl
 ## Features
 
 - Adds an **OpenCode Go** section to the Settings sidebar (`settings.section` contribution), always available
+- **DeepSeek official models supported** (v0.7.0): with a deepseek official model selected, the bolt shows your **topped-up balance** on hover; clicking opens a balance details modal (total / topped-up / granted / availability) in the same Linear design. Key resolves from DSH credentials `DEEPSEEK_API_KEY` → env → OpenCode `auth.json`
 - Adds a **usage bolt button** to the composer tool row (`conversation.input.right`): when the active model is `opencode-go`, a lightning-bolt icon appears next to the model selector; hovering shows the three windows' percentages, clicking opens a standalone modal (fresh data on open, bypassing the cache)
 - The modal is a **swipeable carousel** (Linear-inspired redesign via Open Design): card 0 = usage overview (large monospaced monthly figure + 5h/week rows + animated bars), card 1 = model & cap table (sticky header / hover rows / monospaced accent caps)
 - Model list **and caps follow the official data live** (Host fetches the API + the repo's `models.json`, 1h cache, strict validation, falls back to a bundled snapshot on failure): API order, only models with a published cap are shown, official changes reach users **without reinstalling**; `scripts/sync-models.js` syncs the data in one command

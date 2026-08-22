@@ -19,6 +19,10 @@ import { readFile } from "node:fs/promises";
 const DEFAULT_BASE_URL = "https://opencode.ai/zen/go/v1/usage";
 /** 官方模型清单接口（OpenAI 兼容 /models）。 */
 const DEFAULT_MODELS_URL = "https://opencode.ai/zen/go/v1/models";
+/** DeepSeek 官方余额接口（公开文档：查询余额）。 */
+const DEFAULT_BALANCE_URL = "https://api.deepseek.com/user/balance";
+/** 余额缓存 TTL。 */
+const BALANCE_CACHE_TTL_MS = 60 * 1000;
 /** 额度数据源（仓库根 models.json，仅数据、无敏感内容）。 */
 const MODELS_JSON_URL =
   "https://raw.githubusercontent.com/Hjay1101/dsh-opencode-go-usage/main/models.json";
@@ -89,6 +93,26 @@ async function resolveApiKey(ctx) {
   return undefined;
 }
 
+/** 解析 DeepSeek 官方 API Key：凭据 seam → 环境变量 → opencode auth.json 的 deepseek 条目。 */
+async function resolveDeepSeekKey(ctx) {
+  try {
+    const cred = await ctx.credentials.resolve(credentialRef("DEEPSEEK_API_KEY"));
+    if (cred && typeof cred.value === "string" && cred.value.length > 0) return cred.value;
+  } catch { /* 凭据 seam 不可用则继续回退 */ }
+  if (typeof process.env.DEEPSEEK_API_KEY === "string" && process.env.DEEPSEEK_API_KEY.length > 0) {
+    return process.env.DEEPSEEK_API_KEY;
+  }
+  try {
+    const authPath = join(homedir(), ".local", "share", "opencode", "auth.json");
+    const raw = JSON.parse(await readFile(authPath, "utf8"));
+    const entry = raw["deepseek"];
+    if (entry && entry.type === "api" && typeof entry.key === "string" && entry.key.length > 0) {
+      return entry.key;
+    }
+  } catch { /* 忽略 */ }
+  return undefined;
+}
+
 /** 检查「设置 → 模型」里是否已配置 opencode-go（llm-pi-ai 提供方命名空间）。 */
 function isOpenCodeGoConfigured(ctx) {
   try {
@@ -121,6 +145,7 @@ export class OpencodeGoUsageGateway extends TypertRemoteService {
     this._cache = { key: null, at: 0, value: null };
     this._modelsCache = { at: 0, value: null }; // 实时 /models 清单（ids）
     this._capsCache = { at: 0, value: null };   // 额度表（id → {id,name,monthlyUsd,free}）
+    this._balCache = { at: 0, value: null };    // DeepSeek 余额
   }
 
   /**
@@ -265,6 +290,59 @@ export class OpencodeGoUsageGateway extends TypertRemoteService {
     }
     if (table.length === 0) table = tableArray(caps); // 兜底：无实时清单时用整个额度表
     return { configured: true, reason: null, error: null, models: table };
+  }
+  /**
+   * 查询 DeepSeek 官方账户余额。60 秒缓存。
+   * 返回 { isAvailable, currency, totalBalance, grantedBalance, toppedUpBalance }；
+   * 无 Key 或失败时 balance 为 null。
+   */
+  async balance() {
+    const now = Date.now();
+    if (this._balCache.value !== null && now - this._balCache.at < BALANCE_CACHE_TTL_MS) {
+      return this._balCache.value;
+    }
+    const apiKey = await resolveDeepSeekKey(this.ctx);
+    if (!apiKey) {
+      return { configured: false, reason: "no-api-key", error: null, balance: null };
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+    let res;
+    try {
+      res = await fetch(DEFAULT_BALANCE_URL, {
+        headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+        signal: controller.signal,
+      });
+    } catch {
+      return { configured: true, reason: null, error: "network", balance: null };
+    } finally {
+      clearTimeout(timer);
+    }
+    if (!res.ok) {
+      return { configured: true, reason: null, error: `http-${res.status}`, balance: null };
+    }
+    let body;
+    try {
+      body = await res.json();
+    } catch {
+      return { configured: true, reason: null, error: "bad-json", balance: null };
+    }
+    const first = Array.isArray(body && body.balance_infos) && body.balance_infos[0]
+      ? body.balance_infos[0] : {};
+    const result = {
+      configured: true,
+      reason: null,
+      error: null,
+      balance: {
+        isAvailable: body.is_available === true,
+        currency: typeof first.currency === "string" ? first.currency : null,
+        totalBalance: typeof first.total_balance === "string" ? first.total_balance : null,
+        grantedBalance: typeof first.granted_balance === "string" ? first.granted_balance : null,
+        toppedUpBalance: typeof first.topped_up_balance === "string" ? first.topped_up_balance : null,
+      },
+    };
+    this._balCache = { at: now, value: result };
+    return result;
   }
 }
 

@@ -64,6 +64,15 @@ window.__ModuleLoader__.load({
       rowWeek: "本周",
       hostNotLoaded: "插件 Host 未加载（服务未激活）。请确认已用 dsh plugin 安装本插件，然后重启 DeepSeek Harness。",
       free: "免费",
+      dsTitle: "DeepSeek 余额",
+      totalBalance: "总余额",
+      toppedUp: "充值余额",
+      granted: "赠金余额",
+      statusLabel: "账户状态",
+      available: "可用",
+      unavailable: "不可用",
+      balanceTip: "余额",
+      dsNoKey: "未找到 DeepSeek API Key（DEEPSEEK_API_KEY）。请在 DSH 凭据或环境变量中配置。",
     };
     const en = {
       nav: "OpenCode Go",
@@ -100,6 +109,15 @@ window.__ModuleLoader__.load({
       rowWeek: "Week",
       hostNotLoaded: "Plugin Host is not loaded (service inactive). Install the plugin with dsh plugin and restart DeepSeek Harness.",
       free: "Free",
+      dsTitle: "DeepSeek balance",
+      totalBalance: "Total balance",
+      toppedUp: "Topped up",
+      granted: "Granted",
+      statusLabel: "Account status",
+      available: "Available",
+      unavailable: "Unavailable",
+      balanceTip: "Balance",
+      dsNoKey: "DeepSeek API key not found (DEEPSEEK_API_KEY). Set it in DSH credentials or environment.",
     };
 
     // ---------- Remote 描述符 ----------
@@ -127,6 +145,19 @@ window.__ModuleLoader__.load({
           result: {
             mode: "strict",
             typeSymbol: "dsh-opencode-go-usage#OpencodeGoUsageResult",
+            schema: { parse(value) { return value; } },
+          },
+        },
+        {
+          id: "dsh-opencode-go-usage#opencodeUsage/balance",
+          service: "opencodeUsage",
+          namespace: "opencodeUsage",
+          method: "balance",
+          invocation: { kind: "direct" },
+          parameters: [],
+          result: {
+            mode: "strict",
+            typeSymbol: "dsh-opencode-go-usage#OpencodeGoBalanceResult",
             schema: { parse(value) { return value; } },
           },
         },
@@ -451,6 +482,76 @@ window.__ModuleLoader__.load({
       );
     }
 
+    // ---------- DeepSeek 余额视图（deepseek 官方模型的弹窗内容） ----------
+    function currencySymbol(cur) {
+      if (cur === "CNY") return "¥";
+      if (cur === "USD") return "$";
+      return cur ? cur + " " : "";
+    }
+    function BalanceView(props) {
+      const { query, t } = props;
+      const [st, setSt] = React.useState({ kind: "loading" });
+      const load = React.useCallback(() => {
+        setSt({ kind: "loading" });
+        Promise.resolve()
+          .then(() => query())
+          .then((result) => {
+            if (!result || result.ok === false) {
+              setSt({ kind: "failure", message: (result && result.error && result.error.message) || "remote failed" });
+              return;
+            }
+            setSt({ kind: "done", value: result.value });
+          })
+          .catch((e) => setSt({ kind: "failure", message: String((e && e.message) || e) }));
+      }, [query]);
+      React.useEffect(() => { load(); }, [load]);
+
+      if (st.kind === "loading") return React.createElement("p", { style: styles.hint }, t("loading"));
+      if (st.kind === "failure") return React.createElement("p", { style: styles.error }, st.message);
+      const value = st.value || {};
+      if (value.configured !== true) {
+        return React.createElement("p", { style: styles.error },
+          value.reason === "no-api-key" ? t("dsNoKey") : t("notInModels"));
+      }
+      if (value.error) {
+        let msg = value.error;
+        if (value.error === "unauthorized") msg = t("unauthorized");
+        else if (value.error === "network") msg = t("network");
+        else if (value.error === "bad-json") msg = t("badJson");
+        else if (value.error.startsWith("http-")) msg = t("httpError").replace("{status}", value.error.slice(5));
+        return React.createElement("p", { style: styles.error }, msg);
+      }
+      const bal = value.balance || {};
+      const sym = currencySymbol(bal.currency);
+      const statusPill = bal.isAvailable
+        ? { ...styles.ovPill, color: "var(--dsw-alias-state-success-primary)", background: "color-mix(in srgb, var(--dsw-alias-state-success-primary) 14%, transparent)", borderColor: "color-mix(in srgb, var(--dsw-alias-state-success-primary) 25%, transparent)" }
+        : { ...styles.ovPill, color: "var(--dsw-alias-state-error-primary)", background: "color-mix(in srgb, var(--dsw-alias-state-error-primary) 14%, transparent)", borderColor: "color-mix(in srgb, var(--dsw-alias-state-error-primary) 25%, transparent)" };
+      return React.createElement("div", { style: { ...styles.card, flex: "1 1 0", minHeight: 0, height: "100%", justifyContent: "center" } },
+        React.createElement("div", { style: styles.ovHead },
+          React.createElement("span", { style: styles.ovTitle }, t("dsTitle")),
+          React.createElement("span", { style: statusPill }, bal.isAvailable ? t("available") : t("unavailable"))
+        ),
+        React.createElement("div", { style: styles.heroMain },
+          React.createElement("span", { style: styles.heroNum },
+            sym + (bal.totalBalance == null ? "—" : bal.totalBalance)),
+          React.createElement("span", { style: styles.heroUnit }, t("totalBalance"))
+        ),
+        React.createElement("div", { style: styles.divLine }),
+        React.createElement("div", { style: styles.winRow },
+          React.createElement("div", { style: styles.winMeta },
+            React.createElement("span", null, t("toppedUp")),
+            React.createElement("span", { style: styles.winMetaVal }, sym + (bal.toppedUpBalance == null ? "—" : bal.toppedUpBalance))
+          )
+        ),
+        React.createElement("div", { style: styles.winRow },
+          React.createElement("div", { style: styles.winMeta },
+            React.createElement("span", null, t("granted")),
+            React.createElement("span", { style: styles.winMetaVal }, sym + (bal.grantedBalance == null ? "—" : bal.grantedBalance))
+          )
+        )
+      );
+    }
+
     // 行悬浮背景切换（inline 样式无法用 :hover，用事件切换，两主题均可见）
     function HoverRow(props) {
       const { style, hoverStyle, children } = props;
@@ -599,35 +700,54 @@ window.__ModuleLoader__.load({
 
     // ---------- 工具行控件（conversation.input.right） ----------
     function UsageButton(props) {
-      const { directory, query, forceQuery, queryModels, t } = props;
+      const { directory, query, forceQuery, queryModels, queryBalance, t } = props;
       const [open, setOpen] = React.useState(false);
       const [usage, setUsage] = React.useState(null);
+      const [bal, setBal] = React.useState(null);
 
       const state = useSyncExternalStore(
         (fn) => directory.subscribe(fn),
         () => directory.getSnapshot()
       );
-      const isOpencode = !!(state && state.current && state.current.provider === "opencode-go");
+      const provider = (state && state.current && state.current.provider) || "";
+      const mode = provider === "opencode-go" ? "go" : provider.startsWith("deepseek") ? "ds" : null;
 
       useEffect(() => {
-        if (!isOpencode) return;
+        if (mode !== "go") return;
         let alive = true;
         query().then((r) => { if (alive && r && r.value) setUsage(r.value.usage); }).catch(() => {});
         return () => { alive = false; };
-      }, [isOpencode, query]);
+      }, [mode, query]);
 
       useEffect(() => {
-        if (open || !isOpencode) return;
+        if (open || mode !== "go") return;
         let alive = true;
         query().then((r) => { if (alive && r && r.value) setUsage(r.value.usage); }).catch(() => {});
         return () => { alive = false; };
-      }, [open, isOpencode, query]);
+      }, [open, mode, query]);
 
-      if (!isOpencode) return null;
+      useEffect(() => {
+        if (mode !== "ds") return;
+        let alive = true;
+        queryBalance().then((r) => {
+          if (alive && r && r.value && r.value.balance) setBal(r.value.balance);
+        }).catch(() => {});
+        return () => { alive = false; };
+      }, [mode, queryBalance]);
+
+      if (!mode) return null;
 
       return React.createElement(React.Fragment, null,
         React.createElement(Tooltip,
-          { label: tooltipText(usage, t), side: "top", delayMs: 400 },
+          {
+            label: mode === "go"
+              ? tooltipText(usage, t)
+              : (bal && bal.totalBalance != null
+                ? t("balanceTip") + " " + currencySymbol(bal.currency) + bal.totalBalance
+                : t("dsTitle")),
+            side: "top",
+            delayMs: 400,
+          },
           React.createElement("button",
             {
               style: styles.toolButton,
@@ -647,8 +767,10 @@ window.__ModuleLoader__.load({
             title: t("title"),
             closeLabel: t("close"),
           },
-          React.createElement(ModalShell, { title: t("title"), closeLabel: t("close"), onClose: () => setOpen(false) },
-            React.createElement(CarouselUsage, { query: forceQuery, queryModels, t })
+          React.createElement(ModalShell, { title: mode === "go" ? t("title") : t("dsTitle"), closeLabel: t("close"), onClose: () => setOpen(false) },
+            mode === "go"
+              ? React.createElement(CarouselUsage, { query: forceQuery, queryModels, t })
+              : React.createElement(BalanceView, { query: queryBalance, t })
           )
         )
       );
@@ -688,6 +810,13 @@ window.__ModuleLoader__.load({
         try { return await api.models(); }
         catch (e) { throw friendlyRemoteError(e); }
       };
+      const queryBalance = async () => {
+        await mountReady;
+        const api = ctx.get("remote.opencodeUsage");
+        if (!api) throw new Error(t("hostNotLoaded"));
+        try { return await api.balance(); }
+        catch (e) { throw friendlyRemoteError(e); }
+      };
 
       // 入口 1：设置页侧边栏常驻分区。
       ctx.slots.inject("settings.section", () => ctx.slots.register({
@@ -709,7 +838,7 @@ window.__ModuleLoader__.load({
           locale: NS,
           inject: (sessionId) => {
             const directory = models.directoryFor(sessionId);
-            return { directory: directory.store, query, forceQuery, queryModels, t };
+            return { directory: directory.store, query, forceQuery, queryModels, queryBalance, t };
           },
         }, UsageButton));
       });

@@ -20,6 +20,19 @@ const modelEntrySchema = z.object({
   monthlyUsd: z.number().nullable(),
   free: z.boolean().optional(),
 });
+const balanceResultSchema = z.object({
+  configured: z.boolean(),
+  reason: z.string().nullable(),
+  error: z.string().nullable(),
+  balance: z.object({
+    isAvailable: z.boolean(),
+    currency: z.string().nullable(),
+    totalBalance: z.string().nullable(),
+    grantedBalance: z.string().nullable(),
+    toppedUpBalance: z.string().nullable(),
+  }).nullable(),
+});
+
 const modelsResultSchema = z.object({
   configured: z.boolean(),
   reason: z.string().nullable(),
@@ -67,6 +80,19 @@ export const TYPERT = {
         mode: "strict",
         typeSymbol: "dsh-opencode-go-usage#OpencodeGoUsageResult",
         schema: resultSchema,
+      },
+    },
+    {
+      id: "dsh-opencode-go-usage#opencodeUsage/balance",
+      service: "opencodeUsage",
+      namespace: "opencodeUsage",
+      method: "balance",
+      invocation: { kind: "direct" },
+      parameters: [],
+      result: {
+        mode: "strict",
+        typeSymbol: "dsh-opencode-go-usage#OpencodeGoBalanceResult",
+        schema: balanceResultSchema,
       },
     },
     {
