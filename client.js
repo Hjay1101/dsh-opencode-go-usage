@@ -337,7 +337,7 @@ window.__ModuleLoader__.load({
         ),
         React.createElement("div", { style: styles.heroReset },
           React.createElement("span", null, t("reset")),
-          React.createElement("span", { style: styles.heroResetVal }, fmtReset(usage.monthly && usage.monthly.resetsAt, t))
+          React.createElement("span", { style: styles.heroResetVal }, fmtResetShort(usage.monthly && usage.monthly.resetsAt))
         ),
         React.createElement("div", { style: styles.divLine }),
         React.createElement("div", { style: styles.winRow },
