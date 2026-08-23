@@ -275,6 +275,13 @@ window.__ModuleLoader__.load({
     function usd(n) {
       return Number.isFinite(n) ? "$" + n.toFixed(2) : "—";
     }
+    /** 短格式重置时间：MM-DD HH:mm（小行用，节省宽度）。 */
+    function fmtResetShort(resetsAt) {
+      const d = new Date(resetsAt);
+      if (!resetsAt || Number.isNaN(d.getTime())) return "—";
+      const p = (n) => String(n).padStart(2, "0");
+      return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+    }
 
     // ---------- 单个用量窗口卡片（Linear 风，设置页三张卡共用） ----------
     function WindowCard(props) {
@@ -335,7 +342,8 @@ window.__ModuleLoader__.load({
         React.createElement("div", { style: styles.divLine }),
         React.createElement("div", { style: styles.winRow },
           React.createElement("div", { style: styles.winMeta },
-            React.createElement("span", null, t("row5h")),
+            React.createElement("span", null,
+              t("row5h") + " · " + t("reset") + " " + fmtResetShort(usage.rolling && usage.rolling.resetsAt)),
             React.createElement("span", { style: styles.winMetaVal },
               r.percent === null ? t("unknown") : r.pct + "% · " + usd(r.used) + " / " + usd(QUOTAS.rolling))
           ),
@@ -345,7 +353,8 @@ window.__ModuleLoader__.load({
         ),
         React.createElement("div", { style: styles.winRow },
           React.createElement("div", { style: styles.winMeta },
-            React.createElement("span", null, t("rowWeek")),
+            React.createElement("span", null,
+              t("rowWeek") + " · " + t("reset") + " " + fmtResetShort(usage.weekly && usage.weekly.resetsAt)),
             React.createElement("span", { style: styles.winMetaVal },
               w.percent === null ? t("unknown") : w.pct + "% · " + usd(w.used) + " / " + usd(QUOTAS.weekly))
           ),
