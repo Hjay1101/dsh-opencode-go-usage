@@ -10,7 +10,7 @@
 import z from "@deepseek-ai/schemastery";
 import { TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
 import { credentialRef } from "@deepseek-ai/dsh-credentials";
-import { settingsNamespace } from "@deepseek-ai/dsh-settings";
+// 注：0.1.2-rc.1 起 dsh-settings 移除 settingsNamespace，改经 ctx.settings.describe() 读取。
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { readFile } from "node:fs/promises";
@@ -116,7 +116,9 @@ async function resolveDeepSeekKey(ctx) {
 /** 检查「设置 → 模型」里是否已配置 opencode-go（llm-pi-ai 提供方命名空间）。 */
 function isOpenCodeGoConfigured(ctx) {
   try {
-    const pi = ctx.settings.get(settingsNamespace("llm-pi-ai"));
+    // 新 API：SettingsProvider.describe() 返回各命名空间的当前解析值。
+    const desc = ctx.settings.describe().find((d) => d.ns === "llm-pi-ai");
+    const pi = desc && desc.value;
     return !!(pi && pi.providers && pi.providers["opencode-go"]);
   } catch {
     return false;
