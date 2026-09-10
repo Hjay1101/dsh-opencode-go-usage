@@ -3,14 +3,21 @@
 //
 // 数据源：
 //   1. GET https://opencode.ai/zen/go/v1/models   → 实时清单（顺序）
-//   2. https://opencode.ai/docs/go               → 价格/月额度表（额度）
+//   2. https://opencode.ai/docs/go                → 价格/月额度表 + 官方 Model ID 表
 //
 // 用法：
-//   node scripts/sync-models.js        默认 --check：只 diff，有变动退出码 1
+//   node scripts/sync-models.js         默认 --check：只 diff，有变动退出码 1
 //   node scripts/sync-models.js --apply 写回 models.json 并同步 client.js 兜底表
 //
-// 说明：额度仅存在于官方文档 HTML 表格（无 API），解析失败（行数过少 / 格式漂移）
-// 会中止，绝不半覆盖。models.json 只含模型 id/名称/额度，无任何敏感信息。
+// 匹配规则：官方文档的「Model ID」表是 名称→id 的唯一权威来源
+// （例：DeepSeek V4.1 Flash → deepseek-flash、LongCat-2.0 → longcat-2.0）。
+// 历史上用 slug 猜 id 会翻车：GLM 5.2 → "glm-5-2" ≠ "glm-5.2"，新模型会被静默丢掉。
+// 本版先按「两个表格的归一化名称」join，再用归一化 id 兜底，并保留已有显示名。
+//
+// 边界：实时接口有、Go 文档未公开额度的模型一律不进 models.json（不展示），
+// 但会列在报告里；以前有额度、现在文档已移除的会沿用旧值并单独提示人工确认。
+// 解析失败（表头找不到 / 行数过少 / 命中率过低）一律中止，绝不半覆盖。
+// models.json 只含模型 id/名称/额度，无任何敏感信息。
 
 import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -21,7 +28,7 @@ const MODELS_JSON = resolve(ROOT, "models.json");
 const CLIENT = resolve(ROOT, "client.js");
 const MODELS_URL = "https://opencode.ai/zen/go/v1/models";
 const DOCS_URL = "https://opencode.ai/docs/go/";
-const MIN_ROWS = 15; // 解析到的文档额度行数下限，低于即视为解析失败
+const MIN_ROWS = 15; // 文档额度行数下限，低于即视为解析失败
 
 const apply = process.argv.includes("--apply");
 
@@ -37,71 +44,96 @@ async function fetchLiveIds() {
   return ids;
 }
 
-// ---------- 2) 文档价格表 → { 显示名: 月额度 } ----------
-async function fetchDocsCaps() {
-  const res = await fetch(DOCS_URL, { headers: { "User-Agent": "Mozilla/5.0" } });
-  if (!res.ok) throw new Error(`docs HTTP ${res.status}`);
-  let html = await res.text();
-  html = html.replace(/<script[\s\S]*?<\/script>/g, "").replace(/<style[\s\S]*?<\/style>/g, "");
-  html = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  const start = html.indexOf("Model Input Output Cached Read");
-  if (start === -1) throw new Error("docs price table header not found");
-  const end = html.indexOf("Peak hours are", start);
-  const seg = end > start ? html.slice(start, end) : html.slice(start);
-  // 行: 模型名(可带括号限定) + 2~4 个价格/占位 + $月额度
-  const caps = {};
-  for (const m of seg.matchAll(/([A-Z][A-Za-z0-9 .\-]+?)(?:\s*\([^)]{0,40}\))?\s*(?:(?:-|\$[\d.]+)\s+){2,4}\s*\$(\d+)/g)) {
-    const name = m[1].trim();
-    if (!caps[name]) caps[name] = Number(m[2]);
-  }
-  if (Object.keys(caps).length < MIN_ROWS) throw new Error(`docs parse too few rows: ${Object.keys(caps).length}`);
-  return caps;
+// ---------- 2) 文档 HTML → 两个关键表格 ----------
+const ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', "#39": "'", nbsp: " " };
+const decode = (s) => s.replace(/&(#?\w+);/g, (m, e) => ENTITIES[e] ?? m);
+const cellText = (html) => decode(html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+/** 去掉规格限定，如 "(Off-Peak)"、"(≤ 256K tokens)"。 */
+const stripParen = (s) => s.replace(/\s*\([^)]*\)\s*/g, " ").replace(/\s+/g, " ").trim();
+/** 归一化：忽略大小写、空格、点、连字符（"MiMo-V2.5" == "MiMo V2.5"）。 */
+const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "");
+
+function extractTables(html) {
+  const tables = html.match(/<table[\s\S]*?<\/table>/gi) || [];
+  return tables.map((t) =>
+    (t.match(/<tr[\s\S]*?<\/tr>/gi) || []).map((r) =>
+      (r.match(/<t[hd][\s\S]*?<\/t[hd]>/gi) || []).map(cellText)
+    )
+  );
 }
 
-// ---------- 名称 → id（优先已知映射，其次 slug 化） ----------
-const slugify = (name) =>
-  name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+async function fetchDocsTables() {
+  const res = await fetch(DOCS_URL, { headers: { "User-Agent": "Mozilla/5.0" } });
+  if (!res.ok) throw new Error(`docs HTTP ${res.status}`);
+  const tables = extractTables(await res.text());
+  const head = (t) => (t[0] || []).join("|").toLowerCase();
+  const price = tables.find((t) => head(t).includes("model") && head(t).includes("monthly"));
+  const idTable = tables.find((t) => head(t).includes("model id"));
+  if (!price) throw new Error("docs price table not found");
+  if (!idTable) throw new Error("docs model-id table not found");
 
-function buildNameIdMap(cur) {
-  const map = {};
-  for (const e of cur) map[e.name] = e.id;
-  return map;
+  // 价格表：第一列是显示名，最后一列是月额度。
+  const capsByName = new Map(); // norm(name) -> { name, monthlyUsd }
+  for (const row of price.slice(1)) {
+    if (row.length < 3) continue;
+    const m = /^\$(\d+(?:\.\d+)?)$/.exec(row[row.length - 1]);
+    if (!m) continue;
+    const name = stripParen(row[0]);
+    const key = norm(name);
+    if (key && !capsByName.has(key)) capsByName.set(key, { name, monthlyUsd: Number(m[1]) });
+  }
+  // 官方 Model ID 表：显示名 → id
+  const idByNormName = new Map();
+  for (const row of idTable.slice(1)) {
+    if (row.length < 2) continue;
+    const id = row[1];
+    if (!/^[a-z0-9][a-z0-9.\-]*$/.test(id)) continue;
+    idByNormName.set(norm(stripParen(row[0])), id);
+  }
+  if (capsByName.size < MIN_ROWS) throw new Error(`docs parse too few rows: ${capsByName.size}`);
+  if (idByNormName.size < MIN_ROWS) throw new Error(`docs id table too few rows: ${idByNormName.size}`);
+
+  // join：两份表在同一页，按归一化名对齐后拿到 该模型的 id+额度
+  const docById = new Map(); // id -> { name, monthlyUsd }
+  for (const [key, cap] of capsByName) {
+    const id = idByNormName.get(key);
+    if (id) docById.set(id, { name: cap.name, monthlyUsd: cap.monthlyUsd });
+  }
+  if (docById.size < MIN_ROWS) throw new Error(`docs join too few models: ${docById.size}`);
+  return docById;
 }
 
 // ---------- 3) 组装新表 ----------
-function buildNewTable(liveIds, docsCaps, curByNameId) {
-  const curById = new Map(curByNameId.map((e) => [e.id, e]));
-  const nameToId = buildNameIdMap(cur);
-  const docsIdBySlug = {};
-  for (const name of Object.keys(docsCaps)) docsIdBySlug[slugify(name)] = name;
+function buildNewTable(liveIds, docById, cur) {
+  const curById = new Map(cur.map((e) => [e.id, e]));
+  // 兜底：文档 ID 表缺行时，用归一化 id 对齐（"glm-5.3" ↔ "GLM-5.3"）
+  const docByNormId = new Map();
+  for (const [id, doc] of docById) docByNormId.set(norm(id), doc);
 
-  const table = [];
+  const table = [], stale = [], unknown = [];
   for (const id of liveIds) {
-    // 名字：已知映射 → slug 回退 → 该项 id
-    let used = null;
-    for (const name of Object.keys(docsCaps)) {
-      const cand = nameToId[name] || slugify(name);
-      if (cand === id) { used = name; break; }
-    }
-    const cap = used != null ? docsCaps[used] : null;
+    const doc = docById.get(id) || docByNormId.get(norm(id));
     const prev = curById.get(id);
-    if (cap != null) {
-      table.push({ id, name: used, monthlyUsd: cap });
-    } else if (prev && (prev.free)) {
-      table.push(prev); // 免费模型保留下
-    } else if (prev && prev.monthlyUsd != null) {
-      table.push({ id, name: prev.name, monthlyUsd: prev.monthlyUsd }); // 文档暂无额度，沿用旧值（diff 会提示）
+    const name = prev ? prev.name : doc ? doc.name : id;
+    if (doc) {
+      table.push({ id, name, monthlyUsd: doc.monthlyUsd });
+    } else if (prev && (prev.free || prev.monthlyUsd != null)) {
+      const e = { id, name: prev.name, monthlyUsd: prev.monthlyUsd ?? null };
+      if (prev.free) e.free = true;
+      table.push(e);
+      stale.push(prev); // 文档已移除额度，沿用旧值（diff 会提示）
+    } else {
+      unknown.push(id); // Go 套餐未公开额度 → 排除
     }
-    // 其它（无额度且无旧值）→ 自动排除
   }
-  return table;
+  return { table, stale, unknown };
 }
 
 // ---------- main ----------
 const cur = JSON.parse(await readFile(MODELS_JSON, "utf8"));
 const liveIds = await fetchLiveIds();
-const docsCaps = await fetchDocsCaps();
-const next = buildNewTable(liveIds, docsCaps, cur);
+const docById = await fetchDocsTables();
+const { table: next, stale, unknown } = buildNewTable(liveIds, docById, cur);
 
 const same = JSON.stringify(next) === JSON.stringify(cur);
 if (!same) {
@@ -111,16 +143,30 @@ if (!same) {
     const p = curById.get(e.id);
     const capTxt = e.free ? "免费" : `$${e.monthlyUsd}`;
     if (!p) console.log(`  + ${e.name} (${e.id}) ${capTxt}`);
-    else if (p.monthlyUsd !== e.monthlyUsd || !!p.free !== !!e.free)
-      console.log(`  ~ ${e.name} ${p.monthlyUsd != null ? "$" + p.monthlyUsd : (p.free ? "免费" : "—")} → ${capTxt}`);
+    else if (p.monthlyUsd !== e.monthlyUsd || !!p.free !== !!e.free || p.name !== e.name)
+      console.log(`  ~ ${e.name} (${e.id}) ${p.monthlyUsd != null ? "$" + p.monthlyUsd : (p.free ? "免费" : "—")} → ${capTxt}`);
   }
   for (const e of cur) {
     if (!next.find((x) => x.id === e.id))
       console.log(`  - ${e.name} (${e.id})（接口已不含）`);
   }
-  console.log(`\n${next.length} 个模型 → ${same ? "无变动" : "有变动"}`);
+  console.log(`\n${next.length} 个模型 → 有变动`);
 } else {
   console.log(`无变动（${next.length} 个模型）`);
+}
+
+// 报告：实时接口有、但文档没给额度的模型（不进表，需人工确认/补额度）
+if (unknown.length) {
+  console.log(`\n⚠ 接口有、Go 文档未公开额度（已排除，共 ${unknown.length} 个）：`);
+  console.log(`  ${unknown.join(", ")}`);
+}
+if (stale.length) {
+  console.log(`\n⚠ 文档已移除额度、沿用旧值（请人工确认，共 ${stale.length} 个）：`);
+  for (const e of stale) console.log(`  ${e.name} (${e.id}) 沿用 $${e.monthlyUsd}`);
+}
+if (liveIds.length && unknown.length / liveIds.length > 0.5) {
+  console.error("\n错误：实时清单过半模型在文档里找不到额度，疑似文档结构变更，已中止。");
+  process.exit(2);
 }
 
 if (apply && !same) {
@@ -137,8 +183,8 @@ if (apply && !same) {
   ).concat(["    ];", ""]);
   src = src.slice(0, start) + lines.join("\n") + src.slice(end);
   await writeFile(CLIENT, src, "utf8");
-  console.log("已写回 models.json + client.js");
+  console.log("\n已写回 models.json + client.js");
 } else if (apply && same) {
-  console.log("无变动，不写回");
+  console.log("\n无变动，不写回");
 }
 process.exit(same ? 0 : 1);

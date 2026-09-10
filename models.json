@@ -30,8 +30,18 @@
     "monthlyUsd": 60
   },
   {
+    "id": "longcat-2.0",
+    "name": "LongCat-2.0",
+    "monthlyUsd": 60
+  },
+  {
     "id": "glm-5.2",
     "name": "GLM 5.2",
+    "monthlyUsd": 60
+  },
+  {
+    "id": "glm-5.3-flash",
+    "name": "GLM-5.3-Flash",
     "monthlyUsd": 60
   },
   {
@@ -55,6 +65,11 @@
     "monthlyUsd": 30
   },
   {
+    "id": "deepseek-flash",
+    "name": "DeepSeek V4.1 Flash",
+    "monthlyUsd": 15
+  },
+  {
     "id": "deepseek-v4-flash-vision-exp",
     "name": "DeepSeek V4 Flash Vision Exp",
     "monthlyUsd": 15
@@ -68,6 +83,11 @@
     "id": "qwen3.8-max",
     "name": "Qwen3.8 Max",
     "monthlyUsd": 15
+  },
+  {
+    "id": "qwen3.8-flash",
+    "name": "Qwen3.8 Flash",
+    "monthlyUsd": 30
   },
   {
     "id": "qwen3.7-plus",
@@ -108,6 +128,16 @@
     "id": "grok-4.5",
     "name": "Grok 4.5",
     "monthlyUsd": 15
+  },
+  {
+    "id": "grok-4.6",
+    "name": "Grok 4.6",
+    "monthlyUsd": 15
+  },
+  {
+    "id": "muse-spark-1.3-contributor",
+    "name": "Muse Spark 1.3 Contributor",
+    "monthlyUsd": 60
   },
   {
     "id": "muse-spark-1.2-contributor",
