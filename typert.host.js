@@ -72,14 +72,14 @@ export const TYPERT = {
           codec: {
             mode: "strict",
             typeSymbol: "dsh-opencode-go-usage#usage:force",
-            schema: z.boolean(),
+            create: () => z.boolean(),
           },
         },
       ],
       result: {
         mode: "strict",
         typeSymbol: "dsh-opencode-go-usage#OpencodeGoUsageResult",
-        schema: resultSchema,
+        create: () => resultSchema,
       },
     },
     {
@@ -92,7 +92,7 @@ export const TYPERT = {
       result: {
         mode: "strict",
         typeSymbol: "dsh-opencode-go-usage#OpencodeGoBalanceResult",
-        schema: balanceResultSchema,
+        create: () => balanceResultSchema,
       },
     },
     {
@@ -105,7 +105,7 @@ export const TYPERT = {
       result: {
         mode: "strict",
         typeSymbol: "dsh-opencode-go-usage#OpencodeGoModelsResult",
-        schema: modelsResultSchema,
+        create: () => modelsResultSchema,
       },
     },
   ],

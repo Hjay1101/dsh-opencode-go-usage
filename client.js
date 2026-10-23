@@ -26,7 +26,7 @@ window.__ModuleLoader__.load({
     const { Modal, Tooltip } = require("@deepseek-ai/dsh-client-ui-primitives");
 
     const NS = "settings.opencodeGoUsage";
-    const inject = ["slots", "locale", "remote", "modelDirectories"];
+    const inject = ["slots", "locale", "remote", "remote.session", "modelDirectories"];
 
     // ---------- 文案（中 / 英） ----------
     const zh = {
@@ -139,6 +139,7 @@ window.__ModuleLoader__.load({
                 mode: "strict",
                 typeSymbol: "dsh-opencode-go-usage#usage:force",
                 schema: { parse(value) { return value; } },
+                create: () => ({ parse(value) { return value; } }),
               },
             },
           ],
@@ -146,6 +147,7 @@ window.__ModuleLoader__.load({
             mode: "strict",
             typeSymbol: "dsh-opencode-go-usage#OpencodeGoUsageResult",
             schema: { parse(value) { return value; } },
+            create: () => ({ parse(value) { return value; } }),
           },
         },
         {
@@ -159,6 +161,7 @@ window.__ModuleLoader__.load({
             mode: "strict",
             typeSymbol: "dsh-opencode-go-usage#OpencodeGoBalanceResult",
             schema: { parse(value) { return value; } },
+            create: () => ({ parse(value) { return value; } }),
           },
         },
         {
@@ -172,6 +175,7 @@ window.__ModuleLoader__.load({
             mode: "strict",
             typeSymbol: "dsh-opencode-go-usage#OpencodeGoModelsResult",
             schema: { parse(value) { return value; } },
+            create: () => ({ parse(value) { return value; } }),
           },
         },
       ],
@@ -185,36 +189,40 @@ window.__ModuleLoader__.load({
     // 断网/拉取失败时的本地回退，字段同 models.json。更新以 models.json 为准：
     // scripts/sync-models.js 会自动同步两者。
     const MODEL_LIST = [
-      { id: "minimax-m3", name: "MiniMax M3", monthlyUsd: 60 },
-      { id: "minimax-m2.7", name: "MiniMax M2.7", monthlyUsd: 60 },
-      { id: "minimax-m2.5", name: "MiniMax M2.5", monthlyUsd: 60 },
-      { id: "kimi-k3", name: "Kimi K3", monthlyUsd: 15 },
-      { id: "kimi-k2.7-code", name: "Kimi K2.7 Code", monthlyUsd: 60 },
-      { id: "kimi-k2.6", name: "Kimi K2.6", monthlyUsd: 60 },
-      { id: "longcat-2.0", name: "LongCat-2.0", monthlyUsd: 60 },
-      { id: "glm-5.2", name: "GLM 5.2", monthlyUsd: 60 },
-      { id: "glm-5.3-flash", name: "GLM-5.3-Flash", monthlyUsd: 60 },
-      { id: "glm-5.3", name: "GLM 5.3", monthlyUsd: 15 },
-      { id: "glm-5.1", name: "GLM 5.1", monthlyUsd: 60 },
+      { id: "deepseek-v4.1-flash", name: "DeepSeek V4.1 Flash", monthlyUsd: 80 },
       { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro", monthlyUsd: 15 },
-      { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash", monthlyUsd: 30 },
-      { id: "deepseek-flash", name: "DeepSeek V4.1 Flash", monthlyUsd: 15 },
-      { id: "deepseek-v4-flash-vision-exp", name: "DeepSeek V4 Flash Vision Exp", monthlyUsd: 15 },
+      { id: "glm-5.1", name: "GLM 5.1", monthlyUsd: 60 },
+      { id: "glm-5.2", name: "GLM 5.2", monthlyUsd: 60 },
+      { id: "glm-5.3", name: "GLM 5.3", monthlyUsd: 15 },
+      { id: "grok-4.6", name: "Grok 4.6", monthlyUsd: 15 },
+      { id: "grok-4.7", name: "Grok 4.7", monthlyUsd: 15 },
+      { id: "muse-spark-1.2-contributor", name: "Muse Spark 1.2 Contributor", monthlyUsd: 60 },
+      { id: "muse-spark-1.3-contributor", name: "Muse Spark 1.3 Contributor", monthlyUsd: 60 },
+      { id: "glm-5.3-flash", name: "GLM-5.3-Flash", monthlyUsd: 60 },
+      { id: "omen-alpha", name: "Omen Alpha", monthlyUsd: 100 },
+      { id: "gpt-5.6-luna", name: "GPT 5.6 Luna", monthlyUsd: 15 },
+      { id: "gpt-6-luna", name: "GPT 6 Luna", monthlyUsd: 15 },
+      { id: "claude-haiku-5-5", name: "Claude Haiku 5.5", monthlyUsd: 15 },
+      { id: "hy3", name: "Hy3", monthlyUsd: 60 },
+      { id: "hy4-preview", name: "Hy4 preview", monthlyUsd: 30 },
+      { id: "kimi-k2.6", name: "Kimi K2.6", monthlyUsd: 60 },
+      { id: "kimi-k2.7-code", name: "Kimi K2.7 Code", monthlyUsd: 60 },
+      { id: "kimi-k3", name: "Kimi K3", monthlyUsd: 15 },
+      { id: "mimo-v2.5", name: "MiMo V2.5", monthlyUsd: 60 },
+      { id: "mimo-v2.6-flash", name: "MiMo-V2.6-Flash", monthlyUsd: 60 },
+      { id: "mimo-v2.5-pro", name: "MiMo V2.5 Pro", monthlyUsd: 15 },
+      { id: "mimo-v2.6-pro", name: "MiMo-V2.6-Pro", monthlyUsd: 15 },
+      { id: "minimax-m2.5", name: "MiniMax M2.5", monthlyUsd: 60 },
+      { id: "minimax-m2.7", name: "MiniMax M2.7", monthlyUsd: 60 },
+      { id: "minimax-m3", name: "MiniMax M3", monthlyUsd: 60 },
+      { id: "minimax-m3.1-flash", name: "MiniMax M3.1 Flash", monthlyUsd: 20 },
+      { id: "longcat-2.0", name: "LongCat-2.0", monthlyUsd: 60 },
+      { id: "step-5-preview", name: "Step 5 Preview", monthlyUsd: 15 },
+      { id: "qwen3.6-plus", name: "Qwen3.6 Plus", monthlyUsd: 60 },
       { id: "qwen3.7-max", name: "Qwen3.7 Max", monthlyUsd: 30 },
       { id: "qwen3.8-max", name: "Qwen3.8 Max", monthlyUsd: 15 },
       { id: "qwen3.8-flash", name: "Qwen3.8 Flash", monthlyUsd: 30 },
       { id: "qwen3.7-plus", name: "Qwen3.7 Plus", monthlyUsd: 60 },
-      { id: "qwen3.6-plus", name: "Qwen3.6 Plus", monthlyUsd: 60 },
-      { id: "mimo-v2.5-pro", name: "MiMo V2.5 Pro", monthlyUsd: 15 },
-      { id: "mimo-v2.5", name: "MiMo V2.5", monthlyUsd: 60 },
-      { id: "hy4-preview", name: "Hy4 preview", monthlyUsd: 30 },
-      { id: "hy3", name: "Hy3", monthlyUsd: 60 },
-      { id: "gpt-5.6-luna", name: "GPT 5.6 Luna", monthlyUsd: 15 },
-      { id: "grok-4.5", name: "Grok 4.5", monthlyUsd: 15 },
-      { id: "grok-4.6", name: "Grok 4.6", monthlyUsd: 15 },
-      { id: "muse-spark-1.3-contributor", name: "Muse Spark 1.3 Contributor", monthlyUsd: 60 },
-      { id: "muse-spark-1.2-contributor", name: "Muse Spark 1.2 Contributor", monthlyUsd: 60 },
-      { id: "omen-alpha", name: "Omen Alpha", monthlyUsd: 100 },
     ];
 
     // ---------- 样式（Linear 风，全部映射 DSH 主题变量） ----------

@@ -1,6 +1,9 @@
 {
   "name": "dsh-opencode-go-usage",
-  "version": "0.8.0",
+  "version": "0.8.1",
+  "engines": {
+    "dsh": ">=0.2.1-rc.2 <0.3.0"
+  },
   "description": "DeepSeek Harness plugin: view your OpenCode Go plan usage from the Settings sidebar or a gauge button next to the model selector",
   "license": "MIT",
   "keywords": [
@@ -36,7 +39,8 @@
         "@deepseek-ai/dsh-api-remotes",
         "@deepseek-ai/dsh-client-runtime",
         "@deepseek-ai/dsh-client-ui-settings",
-        "@deepseek-ai/dsh-client-locale"
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-api-session-controller"
       ],
       "platform": "web"
     },
@@ -51,8 +55,8 @@
     "react": "^18.2.0",
     "@deepseek-ai/cordis": "^4.0.1",
     "@deepseek-ai/schemastery": "^3.18.1",
-    "@deepseek-ai/dsh-typert-protocol": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-credentials": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-settings": "^0.1.0-rc.6"
+    "@deepseek-ai/dsh-typert-protocol": "^0.2.1-rc.2",
+    "@deepseek-ai/dsh-credentials": "^0.2.1-rc.2",
+    "@deepseek-ai/dsh-settings": "^0.2.1-rc.2"
   }
 }
